@@ -73,7 +73,7 @@
 <script type="module">
 import * as THREE from 'three';
 const $=id=>document.getElementById(id);
-const APP_VERSION='P9.1';
+const APP_VERSION='P9.2';
 $('ver').textContent='ver '+APP_VERSION;
 const hud=$('hud'), logEl=$('log'), flash=$('flash');
 function log(m){ const t=new Date().toLocaleTimeString(); logEl.innerHTML+=`<br>[${t}] ${m}`; logEl.scrollTop=1e6; }
@@ -126,16 +126,19 @@ setGrid(false); // ワールドでは仮格子を初期非表示（マップ版�
 const osmGroup=new THREE.Group(); scene.add(osmGroup);
 const osmRoadMat=new THREE.MeshStandardMaterial({color:0x6b6250,roughness:.95});
 function ribbonMesh(pts,width,y){
-  const pos=[],idx=[];
+  const pos=[],idx=[],uvs=[]; let dist=0;
   for(let i=0;i<pts.length;i++){
     const p=pts[i], q=pts[Math.min(i+1,pts.length-1)], o=pts[Math.max(i-1,0)];
+    if(i>0) dist+=Math.hypot(p.x-pts[i-1].x,p.z-pts[i-1].z);
     let dx=q.x-o.x, dz=q.z-o.z; const l=Math.hypot(dx,dz)||1; dx/=l; dz/=l;
     const nx=-dz*width/2, nz=dx*width/2;
     pos.push(p.x+nx,y,p.z+nz, p.x-nx,y,p.z-nz);
+    uvs.push(dist/4,0, dist/4,1);
     if(i>0){ const a=(i-1)*2; idx.push(a,a+1,a+2, a+1,a+3,a+2); }
   }
   const g=new THREE.BufferGeometry();
   g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+  g.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));
   g.setIndex(idx); g.computeVertexNormals();
   return new THREE.Mesh(g,osmRoadMat);
 }
@@ -213,7 +216,11 @@ function nearGrid(x,z){ const gx=((x%40)+40)%40, gz=((z%40)+40)%40;
   const trunks=new THREE.InstancedMesh(new THREE.CylinderGeometry(.25,.35,2.2,7),
     new THREE.MeshStandardMaterial({color:0x5a4030,roughness:1}),NT);
   const leaves=new THREE.InstancedMesh(new THREE.ConeGeometry(1.8,4.2,8),
-    new THREE.MeshStandardMaterial({color:0x1f5a3a,roughness:.9,emissive:0x0a2415,emissiveIntensity:.6}),NT);
+    new THREE.MeshStandardMaterial({color:0xffffff,roughness:.9,emissive:0x0a2415,emissiveIntensity:.6}),NT);
+  const tops=new THREE.InstancedMesh(new THREE.ConeGeometry(1.15,2.6,7),
+    new THREE.MeshStandardMaterial({color:0xffffff,roughness:.9,emissive:0x0d2a18,emissiveIntensity:.6}),NT);
+  const leafCol=new THREE.Color();
+  const leafTones=[0x1f5a3a,0x2a6b42,0x1a4a30,0x35744a];
   let ti=0, guard=0;
   while(ti<NT&&guard++<6000){
     const x=(RND()-.5)*(WORLD-20), z=(RND()-.5)*(WORLD-20);
@@ -224,11 +231,17 @@ function nearGrid(x,z){ const gx=((x%40)+40)%40, gz=((z%40)+40)%40;
     trunks.setMatrixAt(ti,dummy.matrix);
     dummy.position.set(x,3.6*s,z); dummy.updateMatrix();
     leaves.setMatrixAt(ti,dummy.matrix);
+    leaves.setColorAt(ti,leafCol.setHex(leafTones[(RND()*leafTones.length)|0]));
+    dummy.position.set(x,5.3*s,z); dummy.updateMatrix();
+    tops.setMatrixAt(ti,dummy.matrix);
+    tops.setColorAt(ti,leafCol.setHex(leafTones[(RND()*leafTones.length)|0]));
     ti++;
   }
-  trunks.instanceMatrix.needsUpdate=true; leaves.instanceMatrix.needsUpdate=true;
-  scene.add(trunks); scene.add(leaves);
-  occluders.push(trunks,leaves);
+  trunks.instanceMatrix.needsUpdate=true; leaves.instanceMatrix.needsUpdate=true; tops.instanceMatrix.needsUpdate=true;
+  if(leaves.instanceColor) leaves.instanceColor.needsUpdate=true;
+  if(tops.instanceColor) tops.instanceColor.needsUpdate=true;
+  scene.add(trunks); scene.add(leaves); scene.add(tops);
+  occluders.push(trunks,leaves,tops);
   const NR=110;
   const rocks=new THREE.InstancedMesh(new THREE.DodecahedronGeometry(.7),
     new THREE.MeshStandardMaterial({color:0x55607a,roughness:1}),NR);
@@ -318,9 +331,9 @@ function stoneTexture(base,line,speck,n=8){
 let grassNight=null, grassDay=null;
 {
   grassNight=grassTexture('#1c3023',['#2e5a38','#3a7046','#274d2e','#4a8a52','#1e3a26']);
-  grassNight.repeat.set(22,22);
+  grassNight.repeat.set(14,14);
   grassDay=grassTexture('#3f7a44',['#4a8f52','#57a05e','#35803c','#6ab872','#2e6b34']);
-  grassDay.repeat.set(22,22);
+  grassDay.repeat.set(14,14);
   const maxA=renderer.capabilities.getMaxAnisotropy();
   grassNight.anisotropy=maxA; grassDay.anisotropy=maxA;
   ground.material.map=grassNight; ground.material.color.set(0xffffff); ground.material.needsUpdate=true;
@@ -454,6 +467,10 @@ let nightDome=null, moonSpr=null, sunSpr=null, nightTex=null, dayTex=null; const
 {
   const sandM=new THREE.MeshStandardMaterial({roughness:.95});
   sandM.map=stoneTexture('#a89068','#77663f','#c8b088'); sandM.needsUpdate=true;
+  const sandD=new THREE.MeshStandardMaterial({roughness:.95, color:0xb59a70});
+  sandD.map=sandM.map;
+  const mossSkirt=new THREE.MeshStandardMaterial({color:0x2e5a38,roughness:1});
+  const sandTones=[sandM,sandM,sandD];
   const plaza=new THREE.Mesh(new THREE.CircleGeometry(28,36),
     new THREE.MeshStandardMaterial({color:0x8a7452,roughness:1}));
   plaza.rotation.x=-Math.PI/2; plaza.position.set(0,.014,55); scene.add(plaza);
@@ -461,10 +478,13 @@ let nightDome=null, moonSpr=null, sunSpr=null, nightTex=null, dayTex=null; const
   const colG=new THREE.CylinderGeometry(1.7,1.9,15,10);
   [-15,-9,-3,3,9,15].forEach((x,i)=>{
     const broken=(i===2);
-    const c=new THREE.Mesh(broken?new THREE.CylinderGeometry(1.7,1.9,7,10):colG,sandM);
+    const M=sandTones[(RND()*sandTones.length)|0];
+    const c=new THREE.Mesh(broken?new THREE.CylinderGeometry(1.7,1.9,7,10):colG,M);
     c.position.set(x,(broken?7:15)/2,55); ruin.add(c);
-    const cap=new THREE.Mesh(new THREE.BoxGeometry(4.4,1.2,4.4),sandM);
+    const cap=new THREE.Mesh(new THREE.BoxGeometry(4.4,1.2,4.4),M);
     cap.position.set(x,(broken?7:15)+.6,55); ruin.add(cap);
+    const skirt=new THREE.Mesh(new THREE.ConeGeometry(2.6,1.6,8),mossSkirt);
+    skirt.position.set(x,.7,55); ruin.add(skirt);
   });
   [[-12,16.6,0],[12,16.4,.05]].forEach(([x,y,rz])=>{
     const beam=new THREE.Mesh(new THREE.BoxGeometry(22,2.2,3.2),sandM);
@@ -857,6 +877,7 @@ function applyDay(){
   for(const cl of clouds){ cl.visible=true;
     cl.material.opacity=dayMode?.85:.5;
     cl.material.color.set(dayMode?0xffffff:0x9fb4dd); }
+  for(const f of flames) f.visible=!dayMode;
   $('dayBtn').textContent='昼夜: '+(dayMode?'昼':'夜');
   $('dayBtn').classList.toggle('on',dayMode);
 }
