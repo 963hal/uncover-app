@@ -28,6 +28,8 @@
   #mmap{position:fixed;right:calc(10px + env(safe-area-inset-right, 0px));bottom:calc(10px + env(safe-area-inset-bottom, 0px));width:148px;height:148px;border-radius:50%;border:2px solid #4a5f9e;z-index:5;background:rgba(10,15,35,.85)}
   body.hide-ui #btns,body.hide-ui #hud,body.hide-ui #log,body.hide-ui #area,body.hide-ui #zukan,body.hide-ui #help{display:none !important}
   #joy{position:fixed;left:calc(14px + env(safe-area-inset-left, 0px));bottom:calc(14px + env(safe-area-inset-bottom, 0px));width:124px;height:124px;border-radius:50%;background:rgba(34,49,94,.45);border:1px solid #4a5f9e;z-index:20;touch-action:none}
+  #cjoy{position:fixed;right:calc(14px + env(safe-area-inset-right, 0px));bottom:calc(176px + env(safe-area-inset-bottom, 0px));width:92px;height:92px;border-radius:50%;background:rgba(34,49,94,.35);border:1px solid #4a5f9e;z-index:20;touch-action:none}
+  #cknob{position:absolute;left:50%;top:50%;width:36px;height:36px;border-radius:50%;background:transparent;border:2px solid rgba(160,200,255,.8);transform:translate(-50%,-50%);touch-action:none}
   #knob{position:absolute;left:50%;top:50%;width:52px;height:52px;border-radius:50%;background:transparent;border:2px solid rgba(255,215,122,.8);transform:translate(-50%,-50%);touch-action:none}
   #zukan{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top, 0px));transform:translateX(-50%);background:rgba(10,15,35,.88);padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.7;max-width:min(92vw,420px);max-height:60vh;overflow:auto;display:none;z-index:10}
   #zukan b{color:#ffd77a}
@@ -53,6 +55,7 @@
   <button id="osmBtn">周辺の道路を読む</button>
   <button id="gridBtn" class="on">仮の道路: ON</button>
   <button id="camBtn">視点リセット</button>
+  <button id="camLockBtn">カメラ:自由</button>
   <button id="centerBtn">ここを中心にする</button>
   <button id="compassBtn">コンパス: OFF</button>
   <button id="dayBtn">昼夜: 夜</button>
@@ -69,12 +72,13 @@
 <div id="zukan"></div>
 <div id="help"><b>UNCOVER 遊び方</b><br>1. 外で歩くと野生モンスターが現れる<br>2. 近づくと自動でゲット（20m・ブッと振動）<br>3. 家モードで同じ世界を再探索＋おやつ<br>4. マップボタンで地図表示に戻れる<br><button id="helpClose">はじめる</button></div>
 <div id="joy"><div id="knob"></div></div>
+<div id="cjoy"><div id="cknob"></div></div>
 <div id="area">中心 lat <input id="lat" value="35.6812" /> lon <input id="lon" value="139.7671" /><div style="opacity:.7;margin-top:4px">既定東京駅・GPS確定で上書き・半径300m</div></div>
 <div id="log">ログ: 起動。モンスターに近づくと自動でゲット（20m）。1本指=回転・2本指上下=傾き・ピンチ=拡大縮小。</div>
 <script type="module">
 import * as THREE from 'three';
 const $=id=>document.getElementById(id);
-const APP_VERSION='P10.6';
+const APP_VERSION='P10.7';
 $('ver').textContent='ver '+APP_VERSION;
 const hud=$('hud'), logEl=$('log'), flash=$('flash');
 function log(m){ const t=new Date().toLocaleTimeString(); logEl.innerHTML+=`<br>[${t}] ${m}`; logEl.scrollTop=1e6; }
@@ -539,7 +543,7 @@ const pads=[];
   rail.position.y=42; rail.rotation.x=Math.PI/2; tower.add(rail);
   const beacon=new THREE.Mesh(new THREE.SphereGeometry(1,12,10),
     new THREE.MeshStandardMaterial({color:0x7affd4,emissive:0x2affd4,emissiveIntensity:2}));
-  beacon.position.y=44; tower.add(beacon);
+  beacon.position.y=46.5; tower.add(beacon);
   tower.position.set(tgx,tgy,tgz); scene.add(tower);
   // 螺旋階段（歩いて登れる・高さ関数と連動）
   {
@@ -565,7 +569,7 @@ function spiralH(x,z){
   const dx=x+24, dz=z-38, r=Math.hypot(dx,dz);
   if(r<4.0||r>7.2) return 0;
   const t=(((Math.atan2(dx,dz)/(Math.PI*2))%1)+1)%1;
-  return groundH(-24,38)+t*40;
+  return groundH(-24,38)+t*41;
 }
 const TOWER={x:-24,z:38};
 const towerBaseY=groundH(-24,38), deckTopY=towerBaseY+41.25;
@@ -740,6 +744,31 @@ const joy={x:0,y:0};
     const up=()=>{ mdown=false; joy.x=0; joy.y=0; setKnob(0,0);
       removeEventListener('mousemove',mv); removeEventListener('mouseup',up); };
     addEventListener('mousemove',mv); addEventListener('mouseup',up); mv(e); });
+}
+// カメラスティック（右・倒し続けで回転と傾き）
+const camJoy={x:0,y:0};
+{
+  const base=$('cjoy'), knob=$('cknob');
+  const R=30; let tid=null;
+  const setK=(dx,dy)=>{ knob.style.transform=`translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px))`; };
+  const move=e=>{
+    const t=[...e.touches].find(t=>t.identifier===tid) || e.touches[0];
+    const r=base.getBoundingClientRect();
+    let dx=t.clientX-(r.left+r.width/2), dy=t.clientY-(r.top+r.height/2);
+    const l=Math.hypot(dx,dy);
+    if(l>R){ dx=dx/l*R; dy=dy/l*R; }
+    setK(dx,dy); camJoy.x=dx/R; camJoy.y=dy/R;
+  };
+  const end=e=>{
+    if(tid!==null && [...e.changedTouches].some(t=>t.identifier===tid)){
+      tid=null; camJoy.x=0; camJoy.y=0; setK(0,0);
+    }
+  };
+  base.addEventListener('touchstart',e=>{ e.preventDefault(); ensureAudio();
+    tid=e.changedTouches[0].identifier; move(e); },{passive:false});
+  base.addEventListener('touchmove',e=>{ e.preventDefault(); if(tid!==null) move(e); },{passive:false});
+  base.addEventListener('touchend',end); base.addEventListener('touchcancel',end);
+  base.addEventListener('contextmenu',e=>e.preventDefault());
 }
 // おまかせ歩行（地図操作中も前に進む）
 let autoWalk=false;
@@ -977,6 +1006,11 @@ applyDay();
 // 視点：背後三人称ゼルダ式（低・引・煽り・キャラは画面下に小さく）
 let camYaw=0, camDist=9, camH=2.4, camAng=0; const lookY=4.2;
 $('camBtn').onclick=()=>{camYaw=0;camDist=9;camH=2.4;camAng=heading;log('視点を背後に戻した。');};
+let camLock=false;
+$('camLockBtn').onclick=()=>{ camLock=!camLock;
+  $('camLockBtn').textContent='カメラ:'+(camLock?'背後固定':'自由');
+  $('camLockBtn').classList.toggle('on',camLock);
+  log(camLock?'背後固定（常に真後ろ）。':'自由視点に戻した。'); };
 {
   const el=renderer.domElement; let lastT=null, pinchD=0, lastMidY=null;
   el.addEventListener('touchstart',e=>{ if(e.touches.length===1) lastT={x:e.touches[0].clientX,y:e.touches[0].clientY};
@@ -1168,7 +1202,8 @@ function tick(){
   {
     const tdx=px-TOWER.x, tdz=pz-TOWER.z, tr=Math.hypot(tdx,tdz);
     if(tr>0.01&&tr<9&&py>groundH(px,pz)+1.5){
-      const cr=Math.min(Math.max(tr,4.3),6.6);
+      const onDeck=py>deckTopY-1.5;
+      const cr=Math.min(Math.max(tr,onDeck?0:4.3),6.6);
       px=TOWER.x+tdx/tr*cr; pz=TOWER.z+tdz/tr*cr;
     }
     const g=Math.max(groundH(px,pz),spiralH(px,pz),deckH(px,pz,py));
@@ -1227,6 +1262,8 @@ function tick(){
 
   // カメラ：三人称＋指オフセット（外・家共通で指操作が効く）
   // 向きが急変しても体をすり抜けないよう角度を回り込みで追従
+  if(camJoy.x||camJoy.y){ camYaw-=camJoy.x*2.2*dt; camH=Math.max(1.2,Math.min(30,camH-camJoy.y*18*dt)); }
+  if(camLock) camYaw=0;
   const wantA=heading+camYaw;
   let da=wantA-camAng;
   while(da>Math.PI)da-=Math.PI*2; while(da<-Math.PI)da+=Math.PI*2;
@@ -1236,7 +1273,7 @@ function tick(){
   camFocus.lerp(player.position,Math.min(1,dt*10));
   const eyeY=camFocus.y+1.6, lookBase=camFocus.y+3.8;
   occEye.set(camFocus.x,eyeY,camFocus.z);
-  camT.set(camFocus.x-Math.sin(camAng)*camDist,camFocus.y+camH,camFocus.z-Math.cos(camAng)*camDist);
+  camT.set(camFocus.x-Math.sin(camAng)*camDist,camFocus.y+camH+camFocus.y*0.45,camFocus.z-Math.cos(camAng)*camDist);
   occDir.copy(camT).sub(occEye);
   const fullLen=occDir.length()||1; occDir.normalize();
   if(++occFrame%3===0){
