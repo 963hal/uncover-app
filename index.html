@@ -13,63 +13,73 @@
 <link rel="apple-touch-icon" href="icon-180.png" />
 <title>UNCOVER — 昼遺跡ワールド試作</title>
 <style>
-  html,body{margin:0;height:100%;overflow:hidden;background:#0b1020;color:#e8ecf8;font-family:system-ui,sans-serif;touch-action:none}
-  #hud{position:fixed;left:calc(10px + env(safe-area-inset-left, 0px));top:calc(12px + env(safe-area-inset-top, 0px));background:rgba(10,15,35,.80);padding:10px 12px;border-radius:10px;font-size:13px;line-height:1.65;max-width:min(72vw,360px);white-space:pre-line}
+  html,body{margin:0;height:100%;overflow:hidden;background:#141009;color:#f5e6c4;font-family:system-ui,sans-serif;touch-action:none}
+  #hud{position:fixed;left:calc(10px + env(safe-area-inset-left, 0px));top:calc(12px + env(safe-area-inset-top, 0px));background:rgba(30,22,14,.85);border:1px solid #c9a44a;padding:10px 12px;border-radius:10px;font-size:13px;line-height:1.65;max-width:min(72vw,360px);white-space:pre-line}
   #hud b{color:#ffd77a}
-  #btns{position:fixed;right:calc(10px + env(safe-area-inset-right, 0px));top:calc(64px + env(safe-area-inset-top, 0px));display:flex;flex-direction:column;gap:8px;max-width:230px;max-height:62vh;overflow-y:auto;z-index:20}
-  button{background:#22315e;color:#fff;border:1px solid #4a5f9e;border-radius:10px;padding:9px 10px;font-size:13px;cursor:pointer}
-  button.on{background:#5b7a2e;border-color:#9dc65b}
-  #log{position:fixed;left:calc(10px + env(safe-area-inset-left, 0px));bottom:calc(140px + env(safe-area-inset-bottom, 0px));font-size:12px;opacity:.93;background:rgba(10,15,35,.72);padding:8px 10px;border-radius:8px;max-width:min(92vw,500px);max-height:24vh;overflow:auto;z-index:1}
-  #area{position:fixed;right:calc(10px + env(safe-area-inset-right, 0px));bottom:calc(170px + env(safe-area-inset-bottom, 0px));background:rgba(10,15,35,.72);padding:8px 10px;border-radius:8px;font-size:12px}
-  input{width:92px;background:#101838;color:#fff;border:1px solid #4a5f9e;border-radius:6px;padding:4px 6px;font-size:12px}
+  #topbtns{position:fixed;right:calc(10px + env(safe-area-inset-right, 0px));top:calc(12px + env(safe-area-inset-top, 0px));display:flex;gap:8px;z-index:50}
+  .panel{position:fixed;right:calc(10px + env(safe-area-inset-right, 0px));top:calc(64px + env(safe-area-inset-top, 0px));display:none;flex-direction:column;gap:8px;max-width:230px;max-height:62vh;overflow-y:auto;z-index:45;background:rgba(30,22,14,.92);border:1px solid #c9a44a;border-radius:12px;padding:10px}
+  button{background:linear-gradient(#5a4126,#3a2a16);color:#f5e6c4;border:1px solid #c9a44a;border-radius:10px;padding:9px 10px;font-size:13px;cursor:pointer;font-family:"Hiragino Mincho ProN","Yu Mincho",serif;letter-spacing:.05em}
+  button.on{background:linear-gradient(#7a5a26,#4a3a16);border-color:#ffe27a}
+  #log{position:fixed;left:calc(10px + env(safe-area-inset-left, 0px));bottom:calc(140px + env(safe-area-inset-bottom, 0px));font-size:12px;opacity:.93;background:rgba(20,14,8,.85);border:1px solid #c9a44a;padding:8px 10px;border-radius:8px;max-width:min(92vw,500px);max-height:24vh;overflow:auto;z-index:1}
+  #area{position:fixed;right:calc(10px + env(safe-area-inset-right, 0px));bottom:calc(170px + env(safe-area-inset-bottom, 0px));background:rgba(30,22,14,.85);border:1px solid #c9a44a;padding:8px 10px;border-radius:8px;font-size:12px}
+  input{width:92px;background:#241a0e;color:#f5e6c4;border:1px solid #c9a44a;border-radius:6px;padding:4px 6px;font-size:12px}
   #flash{position:fixed;inset:0;pointer-events:none;background:radial-gradient(circle,rgba(255,215,122,.55),transparent 60%);opacity:0;transition:opacity .5s}
-  #uiBtn{position:fixed;right:calc(10px + env(safe-area-inset-right, 0px));top:calc(12px + env(safe-area-inset-top, 0px));z-index:50;background:#22315e;color:#fff;border:1px solid #4a5f9e;border-radius:10px;padding:9px 10px;font-size:13px;cursor:pointer}
-  #ver{position:fixed;left:50%;top:calc(6px + env(safe-area-inset-top, 0px));transform:translateX(-50%);font-size:11px;opacity:.75;background:rgba(10,15,35,.6);padding:2px 10px;border-radius:8px;z-index:60;pointer-events:none}
-  #mmap{position:fixed;right:calc(10px + env(safe-area-inset-right, 0px));bottom:calc(10px + env(safe-area-inset-bottom, 0px));width:148px;height:148px;border-radius:50%;border:2px solid #4a5f9e;z-index:5;background:rgba(10,15,35,.85)}
-  body.hide-ui #btns,body.hide-ui #hud,body.hide-ui #log,body.hide-ui #area,body.hide-ui #zukan,body.hide-ui #help{display:none !important}
-  #joy{position:fixed;left:calc(14px + env(safe-area-inset-left, 0px));bottom:calc(14px + env(safe-area-inset-bottom, 0px));width:124px;height:124px;border-radius:50%;background:rgba(34,49,94,.45);border:1px solid #4a5f9e;z-index:20;touch-action:none}
-  #cjoy{position:fixed;right:calc(14px + env(safe-area-inset-right, 0px));bottom:calc(176px + env(safe-area-inset-bottom, 0px));width:92px;height:92px;border-radius:50%;background:rgba(34,49,94,.35);border:1px solid #4a5f9e;z-index:20;touch-action:none}
+  #title{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(10,8,4,.88);z-index:100;transition:opacity 1s;font-family:"Hiragino Mincho ProN","Yu Mincho",serif}
+  #title div{font-size:52px;letter-spacing:.35em;color:#ffd77a;text-shadow:0 0 24px rgba(255,180,80,.6);margin-left:.35em}
+  #title small{font-size:14px;letter-spacing:.3em;color:#c9a44a;margin-top:12px}
+  #ver{position:fixed;left:50%;top:calc(6px + env(safe-area-inset-top, 0px));transform:translateX(-50%);font-size:11px;opacity:.75;background:rgba(30,22,14,.6);border:1px solid #c9a44a;color:#ffd77a;padding:2px 10px;border-radius:8px;z-index:60;pointer-events:none}
+  #mmap{position:fixed;right:calc(10px + env(safe-area-inset-right, 0px));bottom:calc(10px + env(safe-area-inset-bottom, 0px));width:148px;height:148px;border-radius:50%;border:2px solid #c9a44a;z-index:5;background:rgba(20,14,8,.85)}
+  body.hide-ui #menuPanel,body.hide-ui #testPanel,body.hide-ui #menuBtn,body.hide-ui #testBtn,body.hide-ui #hud,body.hide-ui #log,body.hide-ui #area,body.hide-ui #zukan,body.hide-ui #help{display:none !important}
+  #joy{position:fixed;left:calc(14px + env(safe-area-inset-left, 0px));bottom:calc(14px + env(safe-area-inset-bottom, 0px));width:124px;height:124px;border-radius:50%;background:rgba(48,36,20,.45);border:1px solid #c9a44a;z-index:20;touch-action:none}
+  #cjoy{position:fixed;right:calc(14px + env(safe-area-inset-right, 0px));bottom:calc(176px + env(safe-area-inset-bottom, 0px));width:92px;height:92px;border-radius:50%;background:rgba(48,36,20,.35);border:1px solid #c9a44a;z-index:20;touch-action:none}
   #cknob{position:absolute;left:50%;top:50%;width:36px;height:36px;border-radius:50%;background:transparent;border:2px solid rgba(160,200,255,.8);transform:translate(-50%,-50%);touch-action:none}
   #knob{position:absolute;left:50%;top:50%;width:52px;height:52px;border-radius:50%;background:transparent;border:2px solid rgba(255,215,122,.8);transform:translate(-50%,-50%);touch-action:none}
-  #zukan{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top, 0px));transform:translateX(-50%);background:rgba(10,15,35,.88);padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.7;max-width:min(92vw,420px);max-height:60vh;overflow:auto;display:none;z-index:10}
+  #zukan{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top, 0px));transform:translateX(-50%);background:rgba(30,22,14,.92);border:1px solid #c9a44a;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.7;max-width:min(92vw,420px);max-height:60vh;overflow:auto;display:none;z-index:10}
   #zukan b{color:#ffd77a}
-  #help{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(10,15,35,.95);padding:16px 18px;border-radius:14px;font-size:14px;line-height:1.9;max-width:min(92vw,440px);z-index:40;display:none;border:1px solid #4a5f9e}
+  #help{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(30,22,14,.96);padding:16px 18px;border-radius:14px;font-size:14px;line-height:1.9;max-width:min(92vw,440px);z-index:40;display:none;border:1px solid #c9a44a;color:#f5e6c4}
   #help b{color:#ffd77a}
-  #help button{margin-top:10px;width:100%;font-size:15px;background:#5b7a2e;border-color:#9dc65b}
+  #help button{margin-top:10px;width:100%;font-size:15px}
 </style>
 <script>if('serviceWorker' in navigator){addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}</script>
 <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js"}}</script>
 </head>
 <body>
 <div id="flash"></div>
+<div id="title"><div>UNCOVER</div><small>草原と遺跡のテスト冒険</small></div>
+<div id="title"><div>UNCOVER</div><small>草原と遺跡のテスト冒険</small></div>
+<div id="topbtns">
 <button id="uiBtn">UI非表示</button>
-<div id="ver"></div>
-<canvas id="mmap" width="148" height="148"></canvas>
-<div id="hud">読み込み中…</div>
-<div id="btns">
+<button id="menuBtn">メニュー</button>
+<button id="testBtn">テスト</button>
+</div>
+<div id="menuPanel" class="panel">
   <button id="modeBtn">モード: 外</button>
   <button id="mapBtn">マップ</button>
-  <button id="helpBtn">遊び方</button>
-  <button id="simpleBtn">かんたん表示: OFF</button>
-  <button id="gpsBtn">GPS: OFF（模擬）</button>
-  <button id="osmBtn">周辺の道路を読む</button>
-  <button id="gridBtn" class="on">仮の道路: ON</button>
-  <button id="camBtn">視点リセット</button>
-  <button id="camLockBtn">カメラ:自由</button>
-  <button id="altBtn">高度俯瞰: ON</button>
-  <button id="centerBtn">ここを中心にする</button>
-  <button id="compassBtn">コンパス: OFF</button>
-  <button id="dayBtn">昼夜: 夜</button>
-  <button id="debugBtn">モンスター出現（試用）</button>
   <button id="openBtn">ゲット（近いのを捕まえる）</button>
   <button id="snackBtn">おやつ（家専用）</button>
   <button id="zukanBtn">モンスターずかん</button>
   <button id="walkBtn">おまかせ歩行: OFF</button>
   <button id="jumpBtn">ジャンプ</button>
+  <button id="helpBtn">遊び方</button>
+  <button id="camBtn">視点リセット</button>
+  <button id="camLockBtn">カメラ:自由</button>
+  <button id="altBtn">高度俯瞰: ON</button>
+  <button id="dayBtn">昼夜: 夜</button>
+</div>
+<div id="testPanel" class="panel">
+  <button id="gpsBtn">GPS: OFF（模擬）</button>
+  <button id="osmBtn">周辺の道路を読む</button>
+  <button id="gridBtn" class="on">仮の道路: ON</button>
+  <button id="centerBtn">ここを中心にする</button>
+  <button id="compassBtn">コンパス: OFF</button>
+  <button id="debugBtn">モンスター出現（試用）</button>
   <button id="vibBtn">バイブ試験</button>
   <button id="updateBtn">更新確認</button>
   <button id="resetBtn">開拓リセット</button>
 </div>
+<div id="ver"></div>
+<canvas id="mmap" width="148" height="148"></canvas>
+<div id="hud">読み込み中…</div>
 <div id="zukan"></div>
 <div id="help"><b>UNCOVER 遊び方</b><br>1. 外で歩くと野生モンスターが現れる<br>2. 近づくと自動でゲット（20m・ブッと振動）<br>3. 家モードで同じ世界を再探索＋おやつ<br>4. マップボタンで地図表示に戻れる<br><button id="helpClose">はじめる</button></div>
 <div id="joy"><div id="knob"></div></div>
@@ -79,7 +89,7 @@
 <script type="module">
 import * as THREE from 'three';
 const $=id=>document.getElementById(id);
-const APP_VERSION='P10.9';
+const APP_VERSION='P11.0';
 $('ver').textContent='ver '+APP_VERSION;
 const hud=$('hud'), logEl=$('log'), flash=$('flash');
 function log(m){ const t=new Date().toLocaleTimeString(); logEl.innerHTML+=`<br>[${t}] ${m}`; logEl.scrollTop=1e6; }
@@ -790,20 +800,19 @@ modeBtn.onclick=()=>{mode=mode==='outside'?'home':'outside';
   modeBtn.textContent='モード: '+(mode==='outside'?'外':'家（再探索）');
   modeBtn.classList.toggle('on',mode==='home'); log(mode==='home'?'家モード: 同じ世界を仮想操作で再探索。':'外モードに戻った。');};
 $('mapBtn').onclick=()=>{ location.href='./map.html'; };
-// かんたん表示（試用ボタン・履歴・座標入力を隠す）
-const SIMPLE_IDS=['osmBtn','gridBtn','centerBtn','compassBtn','debugBtn','vibBtn','updateBtn','resetBtn'];
-let simpleMode=localStorage.getItem('uncover-ui-simple')==='1';
-function applySimple(){
-  for(const id of SIMPLE_IDS){ const el=$(id); if(el) el.style.display=simpleMode?'none':''; }
-  logEl.style.display=simpleMode?'none':'';
-  $('area').style.display=simpleMode?'none':'';
-  $('simpleBtn').textContent='かんたん表示: '+(simpleMode?'ON':'OFF');
-  $('simpleBtn').classList.toggle('on',simpleMode);
+// メニュー・テスト階層
+function closePanels(){ $('menuPanel').style.display='none'; $('testPanel').style.display='none'; }
+$('menuBtn').onclick=()=>{ const p=$('menuPanel'), o=p.style.display!=='flex';
+  closePanels(); if(o) p.style.display='flex'; };
+$('testBtn').onclick=()=>{ const p=$('testPanel'), o=p.style.display!=='flex';
+  closePanels(); if(o) p.style.display='flex'; };
+// タイトル演出
+{
+  const t=$('title');
+  const hide=()=>{ t.style.opacity=0; setTimeout(()=>t.style.display='none',1100); };
+  t.addEventListener('click',hide);
+  setTimeout(hide,3000);
 }
-$('simpleBtn').onclick=()=>{ simpleMode=!simpleMode;
-  try{localStorage.setItem('uncover-ui-simple',simpleMode?'1':'0');}catch{}
-  applySimple(); if(!simpleMode) log('詳細表示に戻した。'); };
-applySimple();
 // UI全隠し（右上1ボタン・風景撮影用・説明パネルも隠す）
 let uiHidden=false;
 try{ uiHidden=localStorage.getItem('uncover-ui-hide')==='1'; }catch{}
