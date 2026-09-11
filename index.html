@@ -74,7 +74,7 @@
 <script type="module">
 import * as THREE from 'three';
 const $=id=>document.getElementById(id);
-const APP_VERSION='P10.0';
+const APP_VERSION='P10.1';
 $('ver').textContent='ver '+APP_VERSION;
 const hud=$('hud'), logEl=$('log'), flash=$('flash');
 function log(m){ const t=new Date().toLocaleTimeString(); logEl.innerHTML+=`<br>[${t}] ${m}`; logEl.scrollTop=1e6; }
@@ -571,7 +571,8 @@ const accCircle=new THREE.Mesh(new THREE.RingGeometry(1,1.3,40),
   new THREE.MeshBasicMaterial({color:0x88aaff,transparent:true,opacity:.5,side:THREE.DoubleSide}));
 accCircle.rotation.x=-Math.PI/2; accCircle.position.y=.07; accCircle.visible=false; scene.add(accCircle);
 let px=0,pz=0,heading=0;
-let pyJump=0, vy=0, jumping=false, dashing=false, lastStickEnd=0;
+let py=0, vy=0, jumping=false, dashing=false, lastStickEnd=0;
+window.__dbg={pos:()=>({px,pz,py:player.position.y,jumping,vy,g:groundH(px,pz)}),set:(x,z)=>{px=x;pz=z},jump:()=>{if(!jumping){jumping=true;vy=5;}},gh:(x,z)=>groundH(x,z)};
 
 // モンスター（浮く体＋顔・こっちを見てぷかぷかする）
 const secrets=[];
@@ -1106,10 +1107,19 @@ function tick(){
   const stopped=(now-lastMove)>2000;
   const v=Math.max(0,smoothSpeed);
   const vstate=v>8?'高速移動中（景観のみ）':stopped?'停止（細部くっきり）':v>.5?'歩行中':'減速中';
-  // 高さ：地形＋ジャンプ
-  let py=groundH(px,pz);
-  if(jumping){ pyJump+=vy*dt; vy-=14*dt;
-    if(pyJump<=0){ pyJump=0; jumping=false; } else py+=pyJump; }
+  // 高さ：接地物理（上りは即登坂・下りと空中は重力落下）
+  {
+    const g=groundH(px,pz);
+    if(jumping){
+      vy-=14*dt; py+=vy*dt;
+      if(py<=g){ py=g; vy=0; jumping=false; }
+    } else if(py<g-0.01){
+      py=Math.min(g,py+12*dt); vy=0;
+    } else if(py>g+0.02){
+      vy-=14*dt; py+=vy*dt;
+      if(py<=g){ py=g; vy=0; }
+    } else { py=g; vy=0; }
+  }
   player.position.set(px,py,pz); player.rotation.y=heading;
   torch.position.set(px,py+3.2,pz);
   autoRing.position.set(px,.06,pz);
