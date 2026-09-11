@@ -74,7 +74,7 @@
 <script type="module">
 import * as THREE from 'three';
 const $=id=>document.getElementById(id);
-const APP_VERSION='P10.5';
+const APP_VERSION='P10.6';
 $('ver').textContent='ver '+APP_VERSION;
 const hud=$('hud'), logEl=$('log'), flash=$('flash');
 function log(m){ const t=new Date().toLocaleTimeString(); logEl.innerHTML+=`<br>[${t}] ${m}`; logEl.scrollTop=1e6; }
@@ -554,7 +554,7 @@ const pads=[];
     steps.instanceMatrix.needsUpdate=true; scene.add(steps);
   }
   const padM=new THREE.MeshBasicMaterial({color:0x7affd4,transparent:true,opacity:.7,side:THREE.DoubleSide});
-  [[tgx,tgz+9],[5,8]].forEach(([x,z])=>{
+  [[-36,44],[5,8]].forEach(([x,z])=>{
     const pad=new THREE.Mesh(new THREE.CircleGeometry(2.2,24),padM.clone());
     pad.rotation.x=-Math.PI/2; pad.position.set(x,groundH(x,z)+.12,z);
     scene.add(pad); pads.push(pad);
@@ -566,6 +566,13 @@ function spiralH(x,z){
   if(r<4.0||r>7.2) return 0;
   const t=(((Math.atan2(dx,dz)/(Math.PI*2))%1)+1)%1;
   return groundH(-24,38)+t*40;
+}
+const TOWER={x:-24,z:38};
+const towerBaseY=groundH(-24,38), deckTopY=towerBaseY+41.25;
+// 展望台の床（上空にいる時のみ有効・地上では無視）
+function deckH(x,z,py){
+  if(py<deckTopY-3) return 0;
+  return Math.hypot(x-TOWER.x,z-TOWER.z)<6.4?deckTopY:0;
 }
 // かがり火（道しるべ・8基）と手持ち松明の灯り
 const flames=[];
@@ -1157,8 +1164,14 @@ function tick(){
       jumping=true; vy=30; beep(); log('展望ジャンプ!'); break;
     }
   }
+  // 塔ゾーン：高所では半径を拘束（落下防止）
   {
-    const g=Math.max(groundH(px,pz),spiralH(px,pz));
+    const tdx=px-TOWER.x, tdz=pz-TOWER.z, tr=Math.hypot(tdx,tdz);
+    if(tr>0.01&&tr<9&&py>groundH(px,pz)+1.5){
+      const cr=Math.min(Math.max(tr,4.3),6.6);
+      px=TOWER.x+tdx/tr*cr; pz=TOWER.z+tdz/tr*cr;
+    }
+    const g=Math.max(groundH(px,pz),spiralH(px,pz),deckH(px,pz,py));
     if(jumping){
       vy-=22*dt; py+=vy*dt;
       if(py<=g){ py=g; vy=0; jumping=false; }
