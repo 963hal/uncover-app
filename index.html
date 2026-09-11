@@ -79,7 +79,7 @@
 <script type="module">
 import * as THREE from 'three';
 const $=id=>document.getElementById(id);
-const APP_VERSION='P10.8';
+const APP_VERSION='P10.9';
 $('ver').textContent='ver '+APP_VERSION;
 const hud=$('hud'), logEl=$('log'), flash=$('flash');
 function log(m){ const t=new Date().toLocaleTimeString(); logEl.innerHTML+=`<br>[${t}] ${m}`; logEl.scrollTop=1e6; }
@@ -1007,13 +1007,17 @@ applyDay();
 // 視点：背後三人称ゼルダ式（低・引・煽り・キャラは画面下に小さく）
 let camYaw=0, camDist=9, camH=2.4, camAng=0; const lookY=4.2;
 $('camBtn').onclick=()=>{camYaw=0;camDist=9;camH=2.4;camAng=heading;log('視点を背後に戻した。');};
-let camLock=false;
+let camLock=true;
+try{ camLock=localStorage.getItem('uncover-camlock')!=='0'; }catch{}
+function applyCamLock(){ $('camLockBtn').textContent='カメラ:'+(camLock?'背後固定':'自由');
+  $('camLockBtn').classList.toggle('on',camLock); }
 $('camLockBtn').onclick=()=>{ camLock=!camLock;
-  $('camLockBtn').textContent='カメラ:'+(camLock?'背後固定':'自由');
-  $('camLockBtn').classList.toggle('on',camLock);
+  try{localStorage.setItem('uncover-camlock',camLock?'1':'0');}catch{}
+  applyCamLock();
   log(camLock?'背後固定（常に真後ろ）。':'自由視点に戻した。'); };
-let altTilt=true;
-try{ altTilt=localStorage.getItem('uncover-alt')!=='0'; }catch{}
+applyCamLock();
+let altTilt=false;
+try{ altTilt=localStorage.getItem('uncover-alt')==='1'; }catch{}
 function applyAlt(){ $('altBtn').textContent='高度俯瞰: '+(altTilt?'ON':'OFF');
   $('altBtn').classList.toggle('on',altTilt); }
 $('altBtn').onclick=()=>{ altTilt=!altTilt;
