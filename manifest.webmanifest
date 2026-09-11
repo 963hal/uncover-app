@@ -1,0 +1,15 @@
+{
+  "name": "UNCOVER P2 試作",
+  "short_name": "UNCOVER",
+  "description": "現実と重なった未知の3D世界を自分の移動でひらく位置連動ゲーム試作",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b1020",
+  "theme_color": "#0b1020",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

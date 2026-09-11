@@ -1,0 +1,769 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0b1020" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="UNCOVER" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
+<link rel="apple-touch-icon" href="icon-180.png" />
+<title>UNCOVER — マップモード（退避版P4.3）</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#0b1020;color:#e8ecf8;font-family:system-ui,sans-serif;touch-action:none}
+  #hud{position:fixed;left:calc(10px + env(safe-area-inset-left, 0px));top:calc(12px + env(safe-area-inset-top, 0px));background:rgba(10,15,35,.80);padding:10px 12px;border-radius:10px;font-size:13px;line-height:1.65;max-width:min(72vw,360px);white-space:pre-line}
+  #hud b{color:#ffd77a}
+  #btns{position:fixed;right:calc(10px + env(safe-area-inset-right, 0px));top:calc(12px + env(safe-area-inset-top, 0px));display:flex;flex-direction:column;gap:8px;max-width:230px;max-height:62vh;overflow-y:auto;z-index:20}
+  button{background:#22315e;color:#fff;border:1px solid #4a5f9e;border-radius:10px;padding:9px 10px;font-size:13px;cursor:pointer}
+  button.on{background:#5b7a2e;border-color:#9dc65b}
+  #log{position:fixed;left:calc(10px + env(safe-area-inset-left, 0px));bottom:calc(140px + env(safe-area-inset-bottom, 0px));font-size:12px;opacity:.93;background:rgba(10,15,35,.72);padding:8px 10px;border-radius:8px;max-width:min(92vw,500px);max-height:24vh;overflow:auto;z-index:1}
+  #area{position:fixed;right:calc(10px + env(safe-area-inset-right, 0px));bottom:calc(10px + env(safe-area-inset-bottom, 0px));background:rgba(10,15,35,.72);padding:8px 10px;border-radius:8px;font-size:12px}
+  input{width:92px;background:#101838;color:#fff;border:1px solid #4a5f9e;border-radius:6px;padding:4px 6px;font-size:12px}
+  #flash{position:fixed;inset:0;pointer-events:none;background:radial-gradient(circle,rgba(255,215,122,.55),transparent 60%);opacity:0;transition:opacity .5s}
+  #joy{position:fixed;left:calc(14px + env(safe-area-inset-left, 0px));bottom:calc(14px + env(safe-area-inset-bottom, 0px));width:124px;height:124px;border-radius:50%;background:rgba(34,49,94,.45);border:1px solid #4a5f9e;z-index:20;touch-action:none}
+  #knob{position:absolute;left:50%;top:50%;width:52px;height:52px;border-radius:50%;background:rgba(255,215,122,.85);transform:translate(-50%,-50%);touch-action:none}
+  #zukan{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top, 0px));transform:translateX(-50%);background:rgba(10,15,35,.88);padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.7;max-width:min(92vw,420px);max-height:60vh;overflow:auto;display:none;z-index:10}
+  #zukan b{color:#ffd77a}
+  #help{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(10,15,35,.95);padding:16px 18px;border-radius:14px;font-size:14px;line-height:1.9;max-width:min(92vw,440px);z-index:40;display:none;border:1px solid #4a5f9e}
+  #help b{color:#ffd77a}
+  #help button{margin-top:10px;width:100%;font-size:15px;background:#5b7a2e;border-color:#9dc65b}
+</style>
+<script>if('serviceWorker' in navigator){addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}</script>
+<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js"}}</script>
+</head>
+<body>
+<div id="flash"></div>
+<div id="hud">読み込み中…</div>
+<div id="btns">
+  <button id="modeBtn">モード: 外</button>
+  <button id="worldBtn">ワールド</button>
+  <button id="helpBtn">遊び方</button>
+  <button id="simpleBtn">かんたん表示: OFF</button>
+  <button id="gpsBtn">GPS: OFF（模擬）</button>
+  <button id="osmBtn">周辺の道路を読む</button>
+  <button id="gridBtn" class="on">仮の道路: ON</button>
+  <button id="camBtn">視点リセット</button>
+  <button id="centerBtn">ここを中心にする</button>
+  <button id="compassBtn">コンパス: OFF</button>
+  <button id="dayBtn">昼夜: 夜</button>
+  <button id="debugBtn">モンスター出現（試用）</button>
+  <button id="openBtn">ゲット（近いのを捕まえる）</button>
+  <button id="snackBtn">おやつ（家専用）</button>
+  <button id="zukanBtn">モンスターずかん</button>
+  <button id="walkBtn">おまかせ歩行: OFF</button>
+  <button id="vibBtn">バイブ試験</button>
+  <button id="updateBtn">更新確認</button>
+  <button id="resetBtn">開拓リセット</button>
+</div>
+<div id="zukan"></div>
+<div id="help"><b>UNCOVER 遊び方</b><br>1. 外で歩くと野生モンスターが現れる<br>2. 近づくと自動でゲット（20m・ブッと振動）<br>3. 家モードで同じ世界を再探索＋おやつ<br><button id="helpClose">はじめる</button></div>
+<div id="joy"><div id="knob"></div></div>
+<div id="area">中心 lat <input id="lat" value="35.6812" /> lon <input id="lon" value="139.7671" /><div style="opacity:.7;margin-top:4px">既定東京駅・GPS確定で上書き・半径300m</div></div>
+<div id="log">ログ: 起動。モンスターに近づくと自動でゲット（20m）。1本指=回転・2本指上下=傾き・ピンチ=拡大縮小。</div>
+<script type="module">
+import * as THREE from 'three';
+const $=id=>document.getElementById(id);
+const APP_VERSION='P4.3';
+const hud=$('hud'), logEl=$('log'), flash=$('flash');
+function log(m){ const t=new Date().toLocaleTimeString(); logEl.innerHTML+=`<br>[${t}] ${m}`; logEl.scrollTop=1e6; }
+
+// 音と振動（発見通知・素人にも分かる合図）
+let actx=null;
+function ensureAudio(){ try{ if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)(); if(actx.state==='suspended') actx.resume(); }catch{} }
+addEventListener('pointerdown',ensureAudio,{once:false});
+function beep(){ try{ if(!actx) return; const o=actx.createOscillator(),g=actx.createGain();
+  o.type='sine'; o.frequency.value=880; g.gain.value=.18; o.connect(g); g.connect(actx.destination);
+  o.start(); g.gain.exponentialRampToValueAtTime(.001,actx.currentTime+.6); o.stop(actx.currentTime+.65);
+  setTimeout(()=>{ try{ const o2=actx.createOscillator(),g2=actx.createGain(); o2.type='sine'; o2.frequency.value=1320;
+  g2.gain.value=.14; o2.connect(g2); g2.connect(actx.destination); o2.start();
+  g2.gain.exponentialRampToValueAtTime(.001,actx.currentTime+.5); o2.stop(actx.currentTime+.55);}catch{} },140);
+}catch{} }
+function buzz(){ try{ navigator.vibrate && navigator.vibrate([90,50,140]); }catch{} }
+function celebrate(name){ flash.style.opacity=1; setTimeout(()=>flash.style.opacity=0,450); beep(); buzz(); }
+
+// --- シーン（1unit=1m、400m四方） ---
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x0b1020);
+scene.fog=new THREE.Fog(0x0b1020,40,180);
+const camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,.1,600);
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth,innerHeight); document.body.appendChild(renderer.domElement);
+const hemi=new THREE.HemisphereLight(0x8aa0ff,0x0a0f1e,.95); scene.add(hemi);
+const moon=new THREE.DirectionalLight(0xbfd0ff,.85); moon.position.set(30,50,20); scene.add(moon);
+
+const WORLD=400, CELL=10, AUTO_R=20, TAP_R=30;
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(WORLD,WORLD),
+  new THREE.MeshStandardMaterial({color:0x182238,roughness:1}));
+ground.rotation.x=-Math.PI/2; scene.add(ground);
+
+// ダミー格子（OSM成功で自動OFF・ボタンで戻せる）
+const roadGroup=new THREE.Group(); scene.add(roadGroup);
+{
+  const m=new THREE.MeshStandardMaterial({color:0x2c3a5c,roughness:.9});
+  for(let i=-WORLD/2;i<=WORLD/2;i+=40){
+    const a=new THREE.Mesh(new THREE.PlaneGeometry(WORLD,3),m);
+    a.rotation.x=-Math.PI/2; a.position.set(0,.02,i); roadGroup.add(a);
+    const b=new THREE.Mesh(new THREE.PlaneGeometry(3,WORLD),m);
+    b.rotation.x=-Math.PI/2; b.position.set(i,.02,0); roadGroup.add(b);
+  }
+}
+const gridBtn=$('gridBtn');
+function setGrid(on){ roadGroup.visible=on; gridBtn.textContent='仮の道路: '+(on?'ON':'OFF'); gridBtn.classList.toggle('on',on); }
+gridBtn.onclick=()=>setGrid(!roadGroup.visible);
+
+const osmGroup=new THREE.Group(); scene.add(osmGroup);
+const osmRoadMat=new THREE.MeshStandardMaterial({color:0x3a4a6e,roughness:.85});
+function ribbonMesh(pts,width,y){
+  const pos=[],idx=[];
+  for(let i=0;i<pts.length;i++){
+    const p=pts[i], q=pts[Math.min(i+1,pts.length-1)], o=pts[Math.max(i-1,0)];
+    let dx=q.x-o.x, dz=q.z-o.z; const l=Math.hypot(dx,dz)||1; dx/=l; dz/=l;
+    const nx=-dz*width/2, nz=dx*width/2;
+    pos.push(p.x+nx,y,p.z+nz, p.x-nx,y,p.z-nz);
+    if(i>0){ const a=(i-1)*2; idx.push(a,a+1,a+2, a+1,a+3,a+2); }
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+  g.setIndex(idx); g.computeVertexNormals();
+  return new THREE.Mesh(g,osmRoadMat);
+}
+function drawOSMWays(elements, origin){
+  while(osmGroup.children.length) osmGroup.remove(osmGroup.children[0]);
+  const mat=new THREE.LineBasicMaterial({color:0x9fd6ff});
+  let n=0;
+  for(const el of elements){
+    if(el.type!=='way'||!el.geometry) continue;
+    const pts=[];
+    for(const p of el.geometry){
+      const dx=(p.lon-origin.lon)*Math.cos(origin.lat*Math.PI/180)*111320;
+      const dz=-((p.lat-origin.lat)*110540);
+      if(Math.abs(dx)>WORLD/2||Math.abs(dz)>WORLD/2) continue;
+      pts.push(new THREE.Vector3(dx,.15,dz));
+    }
+    if(pts.length<2) continue;
+    if(n<250) osmGroup.add(ribbonMesh(pts,5,.08));
+    osmGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),mat));
+    n++;
+  }
+  log(`${n}本の道路を表示（青線・多少のずれはGPS誤差とデータ差）`);
+  if(n>0 && roadGroup.visible){ setGrid(false); log('仮の道路を自動OFF（実道路優先）。戻す時はボタンでON。'); }
+}
+
+// 北の目印（赤い柱=北・方角の基準）
+const northPole=new THREE.Mesh(new THREE.CylinderGeometry(1.2,1.2,60,10),
+  new THREE.MeshStandardMaterial({color:0xff5566,emissive:0x661111}));
+northPole.position.set(0,30,-190); scene.add(northPole);
+
+// ランドマーク
+const tower=new THREE.Mesh(new THREE.CylinderGeometry(2,3,44,8),
+  new THREE.MeshStandardMaterial({color:0x6f7fd6,emissive:0x2a3570,emissiveIntensity:1}));
+tower.position.set(60,22,-90); scene.add(tower);
+const gate=new THREE.Mesh(new THREE.TorusGeometry(7,1.1,10,28),
+  new THREE.MeshStandardMaterial({color:0x88d6a0,emissive:0x1d4a2e,emissiveIntensity:1}));
+gate.position.set(-60,7,-60); scene.add(gate);
+
+// 夜森の環境（星・地面の濃淡・木・岩・固定シードで毎回同じ森）
+function rng32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const RND=rng32(20260911);
+// 丸い光粒テクスチャ（点描画の四角対策）
+function dotTexture(){
+  const c=document.createElement('canvas'); c.width=c.height=64;
+  const g=c.getContext('2d');
+  const gr=g.createRadialGradient(32,32,0,32,32,32);
+  gr.addColorStop(0,'rgba(255,255,255,1)');
+  gr.addColorStop(.4,'rgba(255,255,255,.8)');
+  gr.addColorStop(1,'rgba(255,255,255,0)');
+  g.fillStyle=gr; g.fillRect(0,0,64,64);
+  return new THREE.CanvasTexture(c);
+}
+const DOT=dotTexture();
+{
+  const N=350, pos=new Float32Array(N*3);
+  for(let i=0;i<N;i++){ const a=RND()*Math.PI*2, e=RND()*Math.PI*.45+.08, r=450;
+    pos[i*3]=Math.cos(a)*Math.cos(e)*r; pos[i*3+1]=Math.sin(e)*r; pos[i*3+2]=Math.sin(a)*Math.cos(e)*r; }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  scene.add(new THREE.Points(g,new THREE.PointsMaterial({color:0xcfe0ff,size:1.6,sizeAttenuation:false,fog:false,map:DOT,transparent:true,depthWrite:false})));
+}
+{
+  const m1=new THREE.MeshBasicMaterial({color:0x101a30,transparent:true,opacity:.5});
+  const m2=new THREE.MeshBasicMaterial({color:0x1e2c4a,transparent:true,opacity:.5});
+  for(let i=0;i<36;i++){ const r=8+RND()*22;
+    const m=new THREE.Mesh(new THREE.CircleGeometry(r,20),RND()<.5?m1:m2);
+    m.rotation.x=-Math.PI/2; m.position.set((RND()-.5)*(WORLD-40),.012,(RND()-.5)*(WORLD-40)); scene.add(m); }
+}
+function nearGrid(x,z){ const gx=((x%40)+40)%40, gz=((z%40)+40)%40;
+  return Math.min(gx,40-gx)<4.5||Math.min(gz,40-gz)<4.5; }
+{
+  const NT=260, dummy=new THREE.Object3D();
+  const trunks=new THREE.InstancedMesh(new THREE.CylinderGeometry(.25,.35,2.2,7),
+    new THREE.MeshStandardMaterial({color:0x5a4030,roughness:1}),NT);
+  const leaves=new THREE.InstancedMesh(new THREE.ConeGeometry(1.8,4.2,8),
+    new THREE.MeshStandardMaterial({color:0x1f5a3a,roughness:.9,emissive:0x0a2415,emissiveIntensity:.6}),NT);
+  let ti=0, guard=0;
+  while(ti<NT&&guard++<6000){
+    const x=(RND()-.5)*(WORLD-20), z=(RND()-.5)*(WORLD-20);
+    if(Math.hypot(x,z)<8||nearGrid(x,z)) continue;
+    const s=.7+RND()*.9;
+    dummy.rotation.set(0,RND()*6.28,0);
+    dummy.position.set(x,1.1*s,z); dummy.scale.setScalar(s); dummy.updateMatrix();
+    trunks.setMatrixAt(ti,dummy.matrix);
+    dummy.position.set(x,3.6*s,z); dummy.updateMatrix();
+    leaves.setMatrixAt(ti,dummy.matrix);
+    ti++;
+  }
+  trunks.instanceMatrix.needsUpdate=true; leaves.instanceMatrix.needsUpdate=true;
+  scene.add(trunks); scene.add(leaves);
+  const NR=110;
+  const rocks=new THREE.InstancedMesh(new THREE.DodecahedronGeometry(.7),
+    new THREE.MeshStandardMaterial({color:0x55607a,roughness:1}),NR);
+  let ri=0; guard=0;
+  while(ri<NR&&guard++<4000){
+    const x=(RND()-.5)*(WORLD-20), z=(RND()-.5)*(WORLD-20);
+    if(Math.hypot(x,z)<6||nearGrid(x,z)) continue;
+    dummy.rotation.set(RND()*3,RND()*3,RND()*3);
+    dummy.position.set(x,.3,z); dummy.scale.setScalar(.5+RND()); dummy.updateMatrix();
+    rocks.setMatrixAt(ri,dummy.matrix); ri++;
+  }
+  rocks.instanceMatrix.needsUpdate=true; scene.add(rocks);
+  // 遺跡柱（道沿いにぽつぽつ・高さ不揃い）
+  const NP=60;
+  const pillars=new THREE.InstancedMesh(new THREE.BoxGeometry(1.4,1,1.4),
+    new THREE.MeshStandardMaterial({color:0x4a5a7e,roughness:.9,emissive:0x111a30,emissiveIntensity:.5}),NP);
+  let pi=0; guard=0;
+  while(pi<NP&&guard++<4000){
+    const alongRoad=RND()<.7;
+    let x,z;
+    if(alongRoad){ const gx=Math.round((RND()-.5)*9)*40+(RND()<.5?-7:7); x=gx+(RND()-.5)*3; z=(RND()-.5)*(WORLD-20); }
+    else { x=(RND()-.5)*(WORLD-20); z=(RND()-.5)*(WORLD-20); }
+    if(Math.abs(x)>WORLD/2-4||Math.abs(z)>WORLD/2-4||Math.hypot(x,z)<10) continue;
+    const h=2+RND()*5;
+    dummy.rotation.set(0,RND()*.6,0);
+    dummy.position.set(x,h/2,z); dummy.scale.set(1,h,1); dummy.updateMatrix();
+    pillars.setMatrixAt(pi,dummy.matrix); pi++;
+  }
+  pillars.instanceMatrix.needsUpdate=true; scene.add(pillars);
+}
+// ホタル（2層でゆっくり回転・夜森の奥行き）
+const fireflyA=new THREE.Group(), fireflyB=new THREE.Group();
+{
+  const mk=(n,col,size)=>{
+    const pos=new Float32Array(n*3);
+    for(let i=0;i<n;i++){ const a=RND()*Math.PI*2, r=15+RND()*110;
+      pos[i*3]=Math.cos(a)*r; pos[i*3+1]=.5+RND()*6; pos[i*3+2]=Math.sin(a)*r; }
+    const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+    return new THREE.Points(g,new THREE.PointsMaterial({color:col,size,transparent:true,opacity:.8,map:DOT,depthWrite:false}));
+  };
+  fireflyA.add(mk(70,0xaaffcc,2.4)); fireflyB.add(mk(50,0xffe27a,2.0));
+  scene.add(fireflyA); scene.add(fireflyB);
+}
+
+// 仮主人公（たんけんぼうし・顔が進行方向）
+const player=new THREE.Group();
+const body=new THREE.Mesh(new THREE.CapsuleGeometry(.7,1.1,6,14),
+  new THREE.MeshStandardMaterial({color:0xffc46b,roughness:.6}));
+body.position.y=1.2; player.add(body);
+const head=new THREE.Mesh(new THREE.SphereGeometry(.48,18,14),
+  new THREE.MeshStandardMaterial({color:0xffe0b8,roughness:.7}));
+head.position.y=2.25; player.add(head);
+const hat=new THREE.Mesh(new THREE.ConeGeometry(.62,.75,14),
+  new THREE.MeshStandardMaterial({color:0x3f7a4e,roughness:.8}));
+hat.position.y=2.8; player.add(hat);
+{
+  const wM=new THREE.MeshStandardMaterial({color:0xffffff,roughness:.4});
+  const bM=new THREE.MeshStandardMaterial({color:0x14141c,roughness:.4});
+  [-.18,.18].forEach(x=>{
+    const w=new THREE.Mesh(new THREE.SphereGeometry(.11,10,8),wM);
+    w.position.set(x,2.3,.4); player.add(w);
+    const b=new THREE.Mesh(new THREE.SphereGeometry(.05,8,6),bM);
+    b.position.set(x,2.3,.5); player.add(b);
+  });
+}
+scene.add(player);
+const autoRing=new THREE.Mesh(new THREE.RingGeometry(AUTO_R-.4,AUTO_R,48),
+  new THREE.MeshBasicMaterial({color:0xffd77a,transparent:true,opacity:.35,side:THREE.DoubleSide}));
+autoRing.rotation.x=-Math.PI/2; autoRing.position.y=.06; scene.add(autoRing);
+const accCircle=new THREE.Mesh(new THREE.RingGeometry(1,1.3,40),
+  new THREE.MeshBasicMaterial({color:0x88aaff,transparent:true,opacity:.5,side:THREE.DoubleSide}));
+accCircle.rotation.x=-Math.PI/2; accCircle.position.y=.07; accCircle.visible=false; scene.add(accCircle);
+let px=0,pz=0,heading=0;
+
+// モンスター（浮く体＋顔・こっちを見てぷかぷかする）
+const secrets=[];
+function addSecret(x,z,color,homeOnly=false,name='モンスター',id=null){
+  const g=new THREE.Group();
+  const R=homeOnly?1.1:.8;
+  const m=new THREE.Mesh(new THREE.SphereGeometry(R,20,16),
+    new THREE.MeshStandardMaterial({color,emissive:color,emissiveIntensity:.45,roughness:.6,transparent:true,opacity:0}));
+  m.position.y=1.1; g.add(m);
+  const wm=new THREE.MeshStandardMaterial({color:0xffffff,transparent:true,opacity:0,roughness:.4});
+  const bm=new THREE.MeshStandardMaterial({color:0x14141c,transparent:true,opacity:0,roughness:.4});
+  const ex=R*.34, ey=1.25, ez=R*.76;
+  [-ex,ex].forEach(x=>{
+    const w=new THREE.Mesh(new THREE.SphereGeometry(R*.22,10,8),wm);
+    w.position.set(x,ey,ez); g.add(w);
+    const b=new THREE.Mesh(new THREE.SphereGeometry(R*.1,8,6),bm);
+    b.position.set(x,ey,ez+R*.15); g.add(b);
+  });
+  const ring=new THREE.Mesh(new THREE.RingGeometry(1.2,1.6,28),
+    new THREE.MeshBasicMaterial({color,transparent:true,opacity:0,side:THREE.DoubleSide}));
+  ring.rotation.x=-Math.PI/2; ring.position.y=.08; g.add(ring);
+  g.position.set(x,0,z); g.userData={homeOnly,name,found:false,core:m,halo:ring,mats:[m.material,wm,bm],ph:RND()*6.28,
+    id:id||('c'+Math.random().toString(36).slice(2,9)),wx:0,wz:0,wt:Math.random()*3};
+  scene.add(g); secrets.push(g);
+}
+addSecret(12,4,0x7affd4,false,'チビドラゴン','m1');
+addSecret(-10,-12,0x7affd4,false,'かげイタチ','m2');
+addSecret(22,-20,0xc49bff,false,'ヒカリクラゲ','m3');
+addSecret(-26,10,0xffe27a,false,'すなねこ','m4');
+addSecret(36,18,0x7affd4,false,'きのこ兵','m5');
+addSecret(0,-34,0xff8ab0,true,'家守りゴーレム（家限定）','m6');
+
+// 保存（uncover-app-v1・旧P1/P0から引継ぎ・追加出現も保存）
+const KEY='uncover-app-v1';
+let store={cells:[],found:[],origin:null,customs:[],days:{},stars:{},meta:{},goaled:''};
+try{ Object.assign(store,JSON.parse(localStorage.getItem(KEY)||'{}')); }catch{}
+if(!store.cells.length){
+  try{ const p1=JSON.parse(localStorage.getItem('uncover-p1')||'null'); if(p1&&p1.cells?.length){store.cells=p1.cells||[];store.found=p1.found||[];store.origin=p1.origin||null;} }catch{}
+  try{ const p0=JSON.parse(localStorage.getItem('uncover-p0')||'null'); if(p0&&!store.cells.length){store.cells=p0.cells||[];store.found=p0.found||[];} }catch{}
+}
+try{ const c=JSON.parse(localStorage.getItem(KEY+':osm')||localStorage.getItem('uncover-p1:osm')||'null'); if(c) localStorage.setItem(KEY+':osm',JSON.stringify(c)); }catch{}
+const cells=new Set(store.cells), found=new Set(store.found);
+// 旧座標キー記録→名前キーへ移行（P4.2徘徊対応・一度だけ）
+try{
+  const LEG=[['12,4','チビドラゴン'],['-10,-12','かげイタチ'],['22,-20','ヒカリクラゲ'],['-26,10','すなねこ'],['36,18','きのこ兵'],['0,-34','家守りゴーレム（家限定）']];
+  for(const [pos,nm] of LEG){
+    if(store.stars[pos]!=null&&store.stars[nm]==null){ store.stars[nm]=store.stars[pos]; delete store.stars[pos]; }
+    if(store.meta[pos]&&!store.meta[nm]){ store.meta[nm]=store.meta[pos]; delete store.meta[pos]; }
+  }
+}catch{}
+function save(){ try{localStorage.setItem(KEY,JSON.stringify({cells:[...cells],found:[...found],origin,customs:store.customs,days:store.days,stars:store.stars,meta:store.meta,goaled:store.goaled}));}catch{} }
+function todayKey(d=new Date()){ return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; }
+function dayRec(){ const k=todayKey(); return store.days[k]||(store.days[k]={caught:0,cells:0}); }
+const GOAL_CAUGHT=5, GOAL_CELLS=10;
+function checkGoal(){
+  const r=dayRec();
+  if(store.goaled!==todayKey()&&r.caught>=GOAL_CAUGHT&&r.cells>=GOAL_CELLS){
+    store.goaled=todayKey(); save(); celebrate();
+    log(`今日の目標達成! ${GOAL_CAUGHT}匹＆${GOAL_CELLS}マス開拓。また明日も歩こう。`);
+  }
+}
+function keyOf(x,z){return Math.round(x)+','+Math.round(z);}
+// 捕獲記録はID基準（旧版の座標キーも読む・徘徊で座標が動くため）
+function isFound(s){ return found.has(s.userData.id)||found.has(keyOf(s.position.x,s.position.z)); }
+secrets.forEach(s=>{ if(isFound(s)) s.userData.found=true; });
+const openedMat=new THREE.MeshStandardMaterial({color:0x24405e,transparent:true,opacity:.5});
+function paintCell(cx,cz){
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(CELL,CELL),openedMat);
+  m.rotation.x=-Math.PI/2; m.position.set(cx*CELL+CELL/2,.03,cz*CELL+CELL/2); scene.add(m);
+}
+cells.forEach(k=>{const[cx,cz]=k.split(',').map(Number); if(Number.isFinite(cx)) paintCell(cx,cz);});
+function markCell(){
+  const cx=Math.floor(px/CELL),cz=Math.floor(pz/CELL),k=cx+','+cz;
+  if(!cells.has(k)){cells.add(k);paintCell(cx,cz);dayRec().cells++;save();checkGoal();}
+}
+
+// --- 移動：模擬＋GPS ---
+const keys={}; addEventListener('keydown',e=>keys[e.key.toLowerCase()]=true);
+addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+// 移動スティック（丸型アナログ・斜め可・倒し具合で速度変化）
+const joy={x:0,y:0};
+{
+  const base=$('joy'), knob=$('knob');
+  const R=44; let tid=null;
+  const setKnob=(dx,dy)=>{ knob.style.transform=`translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px))`; };
+  const move=e=>{
+    const t=[...e.touches].find(t=>t.identifier===tid) || e.touches[0];
+    const r=base.getBoundingClientRect();
+    let dx=t.clientX-(r.left+r.width/2), dy=t.clientY-(r.top+r.height/2);
+    const l=Math.hypot(dx,dy);
+    if(l>R){ dx=dx/l*R; dy=dy/l*R; }
+    setKnob(dx,dy); joy.x=dx/R; joy.y=dy/R;
+  };
+  const end=e=>{
+    if(tid!==null && [...e.changedTouches].some(t=>t.identifier===tid)){
+      tid=null; joy.x=0; joy.y=0; setKnob(0,0);
+    }
+  };
+  base.addEventListener('touchstart',e=>{ e.preventDefault(); ensureAudio();
+    tid=e.changedTouches[0].identifier; move(e); },{passive:false});
+  base.addEventListener('touchmove',e=>{ e.preventDefault(); if(tid!==null) move(e); },{passive:false});
+  base.addEventListener('touchend',end); base.addEventListener('touchcancel',end);
+  base.addEventListener('contextmenu',e=>e.preventDefault());
+  // PC確認用（マウス）
+  let mdown=false;
+  base.addEventListener('mousedown',e=>{ mdown=true; ensureAudio();
+    const r=base.getBoundingClientRect();
+    const mv=ev=>{ let dx=ev.clientX-(r.left+r.width/2), dy=ev.clientY-(r.top+r.height/2);
+      const l=Math.hypot(dx,dy); if(l>R){dx=dx/l*R;dy=dy/l*R;} setKnob(dx,dy); joy.x=dx/R; joy.y=dy/R; };
+    const up=()=>{ mdown=false; joy.x=0; joy.y=0; setKnob(0,0);
+      removeEventListener('mousemove',mv); removeEventListener('mouseup',up); };
+    addEventListener('mousemove',mv); addEventListener('mouseup',up); mv(e); });
+}
+// おまかせ歩行（地図操作中も前に進む）
+let autoWalk=false;
+$('walkBtn').onclick=()=>{ autoWalk=!autoWalk; ensureAudio();
+  $('walkBtn').textContent='おまかせ歩行: '+(autoWalk?'ON':'OFF');
+  $('walkBtn').classList.toggle('on',autoWalk);
+  log(autoWalk?'おまかせ歩行ON（正面に自動で進む・カメラ操作と両立）。':'おまかせ歩行OFF。'); };
+let mode='outside', gpsOn=false, watchId=null, origin=store.origin||null;
+let lastMove=performance.now(), smoothSpeed=0, lastFix=null, gpsAcc=null, lastLatLon=null, compassDeg=null;
+const modeBtn=$('modeBtn'), gpsBtn=$('gpsBtn');
+modeBtn.onclick=()=>{mode=mode==='outside'?'home':'outside';
+  modeBtn.textContent='モード: '+(mode==='outside'?'外':'家（再探索）');
+  modeBtn.classList.toggle('on',mode==='home'); log(mode==='home'?'家モード: 同じ世界を仮想操作で再探索。':'外モードに戻った。');};
+$('worldBtn').onclick=()=>{ location.href='./index.html'; };
+// かんたん表示（試用ボタン・履歴・座標入力を隠す）
+const SIMPLE_IDS=['osmBtn','gridBtn','centerBtn','compassBtn','debugBtn','vibBtn','updateBtn','resetBtn'];
+let simpleMode=localStorage.getItem('uncover-ui-simple')==='1';
+function applySimple(){
+  for(const id of SIMPLE_IDS){ const el=$(id); if(el) el.style.display=simpleMode?'none':''; }
+  logEl.style.display=simpleMode?'none':'';
+  $('area').style.display=simpleMode?'none':'';
+  $('simpleBtn').textContent='かんたん表示: '+(simpleMode?'ON':'OFF');
+  $('simpleBtn').classList.toggle('on',simpleMode);
+}
+$('simpleBtn').onclick=()=>{ simpleMode=!simpleMode;
+  try{localStorage.setItem('uncover-ui-simple',simpleMode?'1':'0');}catch{}
+  applySimple(); if(!simpleMode) log('詳細表示に戻した。'); };
+applySimple();
+gpsBtn.onclick=()=>{
+  ensureAudio();
+  if(gpsOn){gpsOn=false;navigator.geolocation?.clearWatch(watchId);gpsBtn.textContent='GPS: OFF（模擬）';gpsBtn.classList.remove('on');accCircle.visible=false;log('GPS停止。WASD模擬に戻った。');return;}
+  if(!navigator.geolocation){log('この端末はGPS非対応。WASDで続行。');return;}
+  if(location.protocol!=='https:'&&location.hostname!=='localhost'&&location.hostname!=='127.0.0.1') log('注意: GPSはHTTPSかlocalhostでしか動かない。');
+  gpsOn=true;gpsBtn.textContent='GPS: ON';gpsBtn.classList.add('on');log('GPS開始。原点確定まで少し歩くか待機。');
+  watchId=navigator.geolocation.watchPosition(onFix,e=>log('GPSエラー: '+e.message),{enableHighAccuracy:true,maximumAge:1000,timeout:10000});
+};
+function onFix(p){
+  const{latitude:lat,longitude:lon,accuracy,speed}=p.coords;
+  gpsAcc=accuracy; lastLatLon={lat,lon};
+  if(accuracy&&accuracy>50){log(`精度が低いため棄却 ±${Math.round(accuracy)}m（建物影・屋内でありがち）`);return;}
+  if(!origin){origin={lat,lon};$('lat').value=lat.toFixed(5);$('lon').value=lon.toFixed(5);save();log(`原点確定 lat=${lat.toFixed(5)} lon=${lon.toFixed(5)}。ここが世界の中心。`);}
+  const dx=(lon-origin.lon)*Math.cos(origin.lat*Math.PI/180)*111320;
+  const dz=-((lat-origin.lat)*110540);
+  if(Math.abs(dx)>WORLD/2||Math.abs(dz)>WORLD/2){log('エリア外（400m超）。中心リセットか原点付近に戻る。');return;}
+  const now=performance.now();
+  if(lastFix){const dt=(now-lastFix.t)/1000;const d=Math.hypot(dx-lastFix.x,dz-lastFix.z);
+    if(d>60&&dt<5){log(`大きな飛びを抑制 d=${d.toFixed(0)}m`);return;}
+    const inst=dt>0?d/dt:0;const gpsV=(speed!=null&&speed>=0)?speed:inst;
+    smoothSpeed=smoothSpeed*.6+gpsV*.4;
+    if(d>1.5){heading=Math.atan2(dx-px,dz-pz);lastMove=now;} // 停止中の向きブレ防止
+  }
+  lastFix={x:dx,z:dz,t:now};
+  px+=(dx-px)*.35; pz+=(dz-pz)*.35;
+  accCircle.visible=true; accCircle.position.set(px,.07,pz);
+  const r=Math.max(2,gpsAcc||5); accCircle.scale.set(r,r,1);
+}
+$('centerBtn').onclick=()=>{
+  if(lastLatLon){ origin={...lastLatLon}; px=0; pz=0; lastFix=null;
+    $('lat').value=origin.lat.toFixed(5); $('lon').value=origin.lon.toFixed(5); save();
+    log('今いる場所を世界の中心にし直した。ずれが大きい時のリセット用。'); }
+  else log('GPSがまだ無いので中心リセットできない。GPS:ONかlat/lon入力が必要。');
+};
+$('osmBtn').onclick=async()=>{
+  const lat=parseFloat($('lat').value),lon=parseFloat($('lon').value);
+  if(!Number.isFinite(lat)||!Number.isFinite(lon)){log('lat/lonが不正');return;}
+  origin=origin||{lat,lon}; save();
+  const q=`[out:json][timeout:25];way["highway"](around:300,${lat},${lon});out geom;`;
+  log('道路データ取得中…');
+  try{
+    const r=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:'data='+encodeURIComponent(q)});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const j=await r.json();
+    try{localStorage.setItem(KEY+':osm',JSON.stringify({lat,lon,at:Date.now(),el:j.elements.slice(0,400)}));}catch{}
+    drawOSMWays(j.elements.slice(0,400),{lat,lon});
+  }catch(e){log('道路取得失敗: '+e.message+'。仮の道路で続行。');
+    try{const c=JSON.parse(localStorage.getItem(KEY+':osm')||'null'); if(c) drawOSMWays(c.el,{lat:c.lat,lon:c.lon});}catch{} }
+};
+try{const c=JSON.parse(localStorage.getItem(KEY+':osm')||'null'); if(c) drawOSMWays(c.el,{lat:c.lat,lon:c.lon});}catch{}
+$('resetBtn').onclick=()=>{localStorage.removeItem(KEY);location.reload();};
+// 更新確認（開発中の新版を取り込む・PWAキャッシュ対策）
+$('updateBtn').onclick=async()=>{
+  log('更新確認中…終わったら自動で再読込します。');
+  try{
+    if('serviceWorker' in navigator){
+      const regs=await navigator.serviceWorker.getRegistrations();
+      for(const r of regs){ try{ await r.update(); }catch{} }
+    }
+    if('caches' in window){
+      const ks=await caches.keys();
+      for(const k of ks){ await caches.delete(k); }
+    }
+  }catch(e){ log('更新確認で問題: '+e.message); }
+  setTimeout(()=>location.reload(),600);
+};
+// デバッグ：目の前24mに置く（種切れ時は開封済みをリサイクル=何度でも出る）
+$('debugBtn').onclick=()=>{
+  ensureAudio(); beep();
+  let cands=secrets.filter(s=>!s.userData.found&&(!s.userData.homeOnly||mode==='home'));
+  let recycled=false;
+  if(!cands.length){
+    const pool=secrets.filter(s=>(!s.userData.homeOnly||mode==='home'));
+    pool.sort((a,b)=>(Math.hypot(a.position.x-px,a.position.z-pz)-Math.hypot(b.position.x-px,b.position.z-pz)));
+    const s0=pool[0];
+    if(!s0){ log('対象が無い。'); return; }
+    s0.userData.found=false; found.delete(s0.userData.id); save(); recycled=true;
+    cands=[s0];
+  }
+  cands.sort((a,b)=>(Math.hypot(a.position.x-px,a.position.z-pz)-Math.hypot(b.position.x-px,b.position.z-pz)));
+  const s=cands[0];
+  const nx=Math.max(-WORLD/2+5,Math.min(WORLD/2-5,px+Math.sin(heading)*24));
+  const nz=Math.max(-WORLD/2+5,Math.min(WORLD/2-5,pz+Math.cos(heading)*24));
+  s.position.set(nx,0,nz); s.scale.setScalar(1.8); setTimeout(()=>s.scale.setScalar(1),700);
+  log(`「${s.userData.name}」を目の前24mに出現${recycled?'（捕まえ済みを再利用）':''}。「ゲット」かタップで捕まえる。`);
+};
+
+// 方角センサー（Android Chrome対応・HTTPS必須）
+const compassBtn=$('compassBtn');
+let compassOn=false;
+compassBtn.onclick=async()=>{
+  try{
+    if(typeof DeviceOrientationEvent!=='undefined' && DeviceOrientationEvent.requestPermission){
+      await DeviceOrientationEvent.requestPermission();
+    }
+    compassOn=!compassOn;
+    compassBtn.textContent='コンパス: '+(compassOn?'ON':'OFF');
+    compassBtn.classList.toggle('on',compassOn);
+    if(compassOn) addEventListener('deviceorientationabsolute',onOrient,true),addEventListener('deviceorientation',onOrient,true);
+    else { removeEventListener('deviceorientationabsolute',onOrient,true); removeEventListener('deviceorientation',onOrient,true); }
+    log(compassOn?'コンパスON（北の赤柱が基準）。':'コンパスOFF。');
+  }catch(e){ log('コンパス不可: '+e.message); }
+};
+function onOrient(e){
+  let deg=null;
+  if(e.webkitCompassHeading!=null) deg=e.webkitCompassHeading;
+  else if(e.alpha!=null) deg=360-e.alpha;
+  if(deg!=null) compassDeg=deg;
+}
+// 昼夜切替（夜=初期の夜森・昼=見比べ用）
+let dayMode=false;
+try{ dayMode=localStorage.getItem('uncover-day')==='1'; }catch{}
+function applyDay(){
+  if(dayMode){ scene.background.set(0x9fc7ee); scene.fog.color.set(0x9fc7ee);
+    hemi.intensity=1.25; moon.intensity=.25; }
+  else { scene.background.set(0x0b1020); scene.fog.color.set(0x0b1020);
+    hemi.intensity=.95; moon.intensity=.85; }
+  $('dayBtn').textContent='昼夜: '+(dayMode?'昼':'夜');
+  $('dayBtn').classList.toggle('on',dayMode);
+}
+$('dayBtn').onclick=()=>{ dayMode=!dayMode;
+  try{localStorage.setItem('uncover-day',dayMode?'1':'0');}catch{}
+  applyDay(); log(dayMode?'昼モード（見比べ用・夜が正式）。':'夜モードに戻した。'); };
+applyDay();
+
+// 視点：位置ゲー式（1本指=回転のみ・2本指上下=傾き・ピンチ=拡大縮小）
+let camYaw=0, camDist=24, camH=17, camAng=0;
+$('camBtn').onclick=()=>{camYaw=0;camDist=24;camH=17;camAng=heading;log('視点を三人称の正面に戻した。');};
+{
+  const el=renderer.domElement; let lastT=null, pinchD=0, lastMidY=null;
+  el.addEventListener('touchstart',e=>{ if(e.touches.length===1) lastT={x:e.touches[0].clientX,y:e.touches[0].clientY};
+    if(e.touches.length===2){ pinchD=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+      lastMidY=(e.touches[0].clientY+e.touches[1].clientY)/2; } },{passive:true});
+  el.addEventListener('touchmove',e=>{ e.preventDefault();
+    if(e.touches.length===1&&lastT){ const dx=e.touches[0].clientX-lastT.x;
+      camYaw-=dx*.008; lastT={x:e.touches[0].clientX,y:e.touches[0].clientY}; }
+    if(e.touches.length===2){ const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+      camDist=Math.max(8,Math.min(90,camDist-(d-pinchD)*.06)); pinchD=d;
+      const midY=(e.touches[0].clientY+e.touches[1].clientY)/2;
+      if(lastMidY!=null) camH=Math.max(4,Math.min(70,camH+(midY-lastMidY)*.08));
+      lastMidY=midY; }
+  },{passive:false});
+}
+
+// 発見処理（近づいたら自動でゲット・停止不要）
+function discover(s,how){
+  if(s.userData.found) return;
+  s.userData.found=true; const kk=s.userData.id; found.add(kk); save();
+  if(!store.meta[s.userData.name]) store.meta[s.userData.name]={at:new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})};
+  dayRec().caught++; save(); checkGoal();
+  celebrate(); s.scale.setScalar(1.6); setTimeout(()=>s.scale.setScalar(1),600);
+  log(`ゲット! 野生の${s.userData.name}を捕まえた（${found.size}/${secrets.length}）[${how}]`);
+  refreshZukan(); ensureWild();
+}
+// 野生モンスター：減ったら自動で出現（デバッグ不要の冒険ループ）
+const NAME_POOL=[['チビドラゴン',0x7affd4],['かげイタチ',0x7affd4],['ヒカリクラゲ',0xc49bff],['すなねこ',0xffe27a],['きのこ兵',0x7affd4],['ツキノウサギ',0xc49bff],['ドロボウガラス',0x7affd4],['サボテン侍',0xffe27a],['アワダマクラゲ',0x7affd4],['コケゴーレム',0xc49bff],['カゼイタチ',0x7affd4],['ホタルネコ',0x9fe870]];
+function spawnWild(){
+  const used=new Set(secrets.map(s=>s.userData.name));
+  const pool=NAME_POOL.filter(([n])=>!used.has(n));
+  const [name,color]=pool.length?pool[Math.floor(Math.random()*pool.length)]:[`名もなきモンスター${secrets.length+1}`,0x7affd4];
+  const id='c'+Date.now().toString(36)+Math.floor(Math.random()*999);
+  const a=Math.random()*Math.PI*2, r=45+Math.random()*45;
+  const x=Math.max(-WORLD/2+5,Math.min(WORLD/2-5,px+Math.sin(a)*r));
+  const z=Math.max(-WORLD/2+5,Math.min(WORLD/2-5,pz+Math.cos(a)*r));
+  addSecret(x,z,color,false,name,id);
+  store.customs.push({id,x:Math.round(x),z:Math.round(z),color,homeOnly:false,name}); save();
+  log(`野生の${name}が現れた!（どこかに出現）`);
+}
+function ensureWild(){
+  const wild=secrets.filter(s=>!s.userData.found&&!s.userData.homeOnly).length;
+  if(wild<3){ spawnWild(); if(wild<2) spawnWild(); refreshZukan(); }
+}
+// ずかん（なつき度★・初ゲット日つき）
+const zukanEl=$('zukan');
+function starOf(s){ return store.stars[s.userData.name]||0; }
+function refreshZukan(){
+  const items=secrets.map(s=>{
+    if(!s.userData.found) return `<div>？ ？？？</div>`;
+    const k=s.userData.name, st='★'.repeat(starOf(s))||'―';
+    const at=store.meta[k]?.at||'';
+    return `<div>◇ ${s.userData.name}${s.userData.homeOnly?'（家）':''} ${st} <span style="opacity:.6">${at}</span></div>`;
+  }).join('');
+  zukanEl.innerHTML=`<b>モンスターずかん ${found.size}/${secrets.length}</b> <span style="opacity:.6">（家限定1体含む・歩くと新しいのが現れる）</span><br>${items}`;
+}
+$('zukanBtn').onclick=()=>{ refreshZukan();
+  zukanEl.style.display=zukanEl.style.display==='block'?'none':'block'; };
+// おやつ（家専用・捕まえ済みの仲間に★最大3）
+$('snackBtn').onclick=()=>{
+  ensureAudio();
+  if(mode!=='home'){ log('おやつは家モード専用。モード:家で仲間にあげよう。'); return; }
+  const got=secrets.filter(s=>s.userData.found)
+    .map(s=>({s,d:Math.hypot(s.position.x-px,s.position.z-pz)}))
+    .filter(o=>o.d<=TAP_R).sort((a,b)=>a.d-b.d)[0];
+  if(!got){ log('近くに仲間がいない。家で仲間のそばに行こう。'); return; }
+  const k=got.s.userData.name, cur=store.stars[k]||0;
+  if(cur>=3){ log(`${got.s.userData.name}はもう満足そう（★3）。`); beep(); return; }
+  store.stars[k]=cur+1; save(); refreshZukan(); celebrate();
+  got.s.scale.setScalar(1.6); setTimeout(()=>got.s.scale.setScalar(1),600);
+  log(`${got.s.userData.name}におやつ! なつき度${'★'.repeat(cur+1)}`);
+};
+// 遊び方パネル（初回のみ自動表示）
+$('helpBtn').onclick=()=>{ $('help').style.display='block'; };
+$('helpClose').onclick=()=>{ $('help').style.display='none';
+  try{localStorage.setItem('uncover-help-seen','1');}catch{} };
+const ray=new THREE.Raycaster(),ptr=new THREE.Vector2();
+// 近いのを捕まえるボタン（精密タップ不要・太い指でもOK）
+function nearestSecret(){
+  let best=null,bd=1e9;
+  for(const s of secrets){ const d=Math.hypot(s.position.x-px,s.position.z-pz);
+    if(d<bd){bd=d;best=s;} }
+  return {s:best,d:bd};
+}
+$('openBtn').onclick=()=>{
+  ensureAudio();
+  const {s,d}=nearestSecret();
+  if(!s){ log('対象が無い。'); return; }
+  if(s.userData.homeOnly&&mode!=='home'){log(`一番近いのは「${s.userData.name}」だが家モード専用。モード:家に切替。`);return;}
+  if(d>TAP_R){log(`一番近いのまで${d.toFixed(0)}m。${TAP_R}m以内でゲットできる（モンスター出現ボタン可）。`);return;}
+  if(s.userData.found){ log(`また会えた: ${s.userData.name}（捕まえ済み・${d.toFixed(0)}m）`); beep(); return; }
+  discover(s,`ボタン（${d.toFixed(0)}m）`);
+};
+// バイブ試験（端末対応の切り分け）
+function vibSupported(){ try{ return ('vibrate' in navigator); }catch{ return false; } }
+$('vibBtn').onclick=()=>{
+  if(!vibSupported()){ log('この端末/ブラウザは振動APIなし（iPhone・PCは鳴らないのが正常）。音＋光で代用。'); beep(); return; }
+  log('バイブ試験：ブルッとすればOK。無ければ下のスマホ設定を確認。');
+  buzz();
+};
+// タップはドラッグと区別（指を滑らせた時は発火しない）
+let downPos=null;
+addEventListener('pointerdown',e=>{ downPos={x:e.clientX,y:e.clientY}; });
+addEventListener('pointerup',e=>{
+  if(!downPos) return;
+  const moved=Math.hypot(e.clientX-downPos.x,e.clientY-downPos.y); downPos=null;
+  if(moved>12) return; // カメラ回転のつもり
+  if(e.target!==renderer.domElement) return; // ボタン押しは除外
+  ptr.x=(e.clientX/innerWidth)*2-1; ptr.y=-(e.clientY/innerHeight)*2+1;
+  ray.setFromCamera(ptr,camera);
+  const targets=[];
+  secrets.forEach(s=>{ targets.push(s.userData.core); targets.push(s.userData.halo); });
+  const hits=ray.intersectObjects(targets.filter(c=>c.material.opacity>.25));
+  if(!hits.length){ return; }
+  const hit=hits[0].object;
+  const s=secrets.find(g=>g.userData.core===hit||g.userData.halo===hit);
+  const d=Math.hypot(s.position.x-px,s.position.z-pz);
+  if(s.userData.homeOnly&&mode!=='home'){log(`「${s.userData.name}」は家モード専用。`);return;}
+  if(d>TAP_R){log('遠すぎる。もう少し近づくと自動でゲット（20m）。');return;}
+  if(s.userData.found){ log(`また会えた: ${s.userData.name}（捕まえ済み）`); beep(); return; }
+  discover(s,'タップ');
+});
+
+// メインループ
+const clock=new THREE.Clock(), camT=new THREE.Vector3(), camFocus=new THREE.Vector3(0,0,0);
+function tick(){
+  requestAnimationFrame(tick);
+  const dt=Math.min(clock.getDelta(),.05), now=performance.now();
+  if(!gpsOn||mode==='home'){
+    // 画面基準の入力（右+・下+）→カメラ基準の世界移動に変換
+    let ix=0,iz=0;
+    if(keys['w']||keys['arrowup'])iz-=1; if(keys['s']||keys['arrowdown'])iz+=1;
+    if(keys['a']||keys['arrowleft'])ix-=1; if(keys['d']||keys['arrowright'])ix+=1;
+    ix+=joy.x; iz+=joy.y; // スティックは斜め・アナログ量をそのまま加算
+    if(autoWalk&&!ix&&!iz){ iz=-1; } // 地図見ながら画面上へ前進
+    const fx=Math.sin(camAng), fz=Math.cos(camAng); // 画面上方向
+    const rx=-Math.cos(camAng), rz=Math.sin(camAng); // 画面右方向
+    let vx=rx*ix-fx*iz, vz=rz*ix-fz*iz;
+    if(vx||vz){const l=Math.hypot(vx,vz);const cl=Math.min(l,1);vx/=l;vz/=l;const sp=4*cl;
+      px=Math.max(-WORLD/2+5,Math.min(WORLD/2-5,px+vx*sp*dt));
+      pz=Math.max(-WORLD/2+5,Math.min(WORLD/2-5,pz+vz*sp*dt));
+      heading=Math.atan2(vx,vz);lastMove=now;smoothSpeed=smoothSpeed*.8+sp*.2;}
+    else smoothSpeed*=.88;
+  } else smoothSpeed*=.97;
+  const stopped=(now-lastMove)>2000;
+  const v=Math.max(0,smoothSpeed);
+  const vstate=v>4?'高速移動中（景観のみ）':stopped?'停止（細部くっきり）':v>.5?'歩行中':'減速中';
+  player.position.set(px,0,pz); player.rotation.y=heading;
+  autoRing.position.set(px,.06,pz);
+  body.position.y=1.2+((!stopped)?Math.sin(now/130)*.07:Math.sin(now/650)*.035);
+  markCell();
+
+  const fogFar=v>4?260:stopped?120:180;
+  scene.fog.far+=(fogFar-scene.fog.far)*Math.min(1,dt*2);
+  tower.material.emissiveIntensity=v>4?2.2:1;
+  fireflyA.rotation.y+=dt*.02; fireflyB.rotation.y-=dt*.015;
+
+  secrets.forEach(s=>{
+    // 徘徊（未ゲットはゆっくり歩き回る・追いかける楽しみ用・安全調整は後回し）
+    if(!s.userData.found){
+      const u=s.userData; u.wt-=dt;
+      if(u.wt<=0){ const a=Math.random()*Math.PI*2, sp=.4+Math.random()*.7;
+        u.wx=Math.sin(a)*sp; u.wz=Math.cos(a)*sp; u.wt=2+Math.random()*3; }
+      let nx=s.position.x+u.wx*dt, nz=s.position.z+u.wz*dt;
+      if(nx<-WORLD/2+5||nx>WORLD/2-5){ u.wx*=-1; nx=s.position.x+u.wx*dt; }
+      if(nz<-WORLD/2+5||nz>WORLD/2-5){ u.wz*=-1; nz=s.position.z+u.wz*dt; }
+      s.position.x=nx; s.position.z=nz;
+    }
+    const d=Math.hypot(s.position.x-px,s.position.z-pz);
+    const ok=!s.userData.homeOnly||mode==='home';
+    const halo=s.userData.halo, mats=s.userData.mats;
+    let t=0;
+    if(ok&&d<32){ t=v>4?0:(stopped?.95:.4); if(s.userData.found)t=.95; }
+    const k=Math.min(1,dt*4);
+    for(const mt of mats) mt.opacity+=(t-mt.opacity)*k;
+    halo.material.opacity+=(((ok&&d<32&&!s.userData.found)?.5:0)-halo.material.opacity)*k;
+    s.userData.ph+=dt*(stopped?2.4:1.1); // ぷかぷか
+    s.position.y=Math.sin(s.userData.ph)*.22;
+    if(d<60&&d>.5) s.lookAt(px,s.position.y+1.1,pz); // こっちを見る
+    // 自動ゲット：20mに入ったら停止・タップ不要
+    if(ok&&!s.userData.found&&d<AUTO_R&&v<=4) discover(s,`接近ゲット（${d.toFixed(0)}m）`);
+  });
+
+  // カメラ：三人称＋指オフセット（外・家共通で指操作が効く）
+  // 向きが急変しても体をすり抜けないよう角度を回り込みで追従
+  const wantA=heading+camYaw;
+  let da=wantA-camAng;
+  while(da>Math.PI)da-=Math.PI*2; while(da<-Math.PI)da+=Math.PI*2;
+  camAng+=da*Math.min(1,dt*4);
+  // カメラ：注視点をなめらかに追い、軌道上で直接配置（すり抜け・ズームなし）
+  camFocus.lerp(player.position,Math.min(1,dt*10));
+  camT.set(camFocus.x-Math.sin(camAng)*camDist,camH,camFocus.z-Math.cos(camAng)*camDist);
+  camera.position.copy(camT);camera.lookAt(camFocus.x,1.6,camFocus.z);
+  const dirTxt = compassDeg!=null?` コンパス${Math.round(compassDeg)}°`:'';
+  const dr=dayRec();
+  hud.textContent=`UNCOVER [${mode==='outside'?'外':'家'}|${gpsOn?'GPS':'模擬'}] ${vstate} ~${v.toFixed(1)}m/s${dirTxt}\n今日:${dr.caught}/${GOAL_CAUGHT}匹 ${dr.cells}/${GOAL_CELLS}マス｜累計${found.size}匹\n■床=開拓済み ◇=モンスター（近づくと自動ゲット） ${APP_VERSION}`;
+  renderer.render(scene,camera);
+}
+tick();
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+// 追加出現の復元＋ずかん初期化（アプリ起動時）
+(store.customs||[]).forEach(c=>{ try{ addSecret(c.x,c.z,c.color,c.homeOnly,c.name,c.id); }catch{} });
+secrets.forEach(s=>{ if(isFound(s)) s.userData.found=true; });
+refreshZukan(); ensureWild(); refreshZukan();
+try{ if(!localStorage.getItem('uncover-help-seen')) $('help').style.display='block'; }catch{ $('help').style.display='block'; }
+log(`UNCOVER起動 ${APP_VERSION}。青線=現実の道路。歩くと野生モンスターが現れる。モンスターずかんで収集。更新は「更新確認」ボタン。`);
+log('振動API: '+('vibrate' in navigator?'あり（バイブ試験で確認）':'なし（この端末は音＋光のみ・正常）。PC・iPhoneはなしが正常。'));
+</script>
+</body>
+</html>
