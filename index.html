@@ -74,7 +74,7 @@
 <script type="module">
 import * as THREE from 'three';
 const $=id=>document.getElementById(id);
-const APP_VERSION='P10.4';
+const APP_VERSION='P10.5';
 $('ver').textContent='ver '+APP_VERSION;
 const hud=$('hud'), logEl=$('log'), flash=$('flash');
 function log(m){ const t=new Date().toLocaleTimeString(); logEl.innerHTML+=`<br>[${t}] ${m}`; logEl.scrollTop=1e6; }
@@ -541,12 +541,31 @@ const pads=[];
     new THREE.MeshStandardMaterial({color:0x7affd4,emissive:0x2affd4,emissiveIntensity:2}));
   beacon.position.y=44; tower.add(beacon);
   tower.position.set(tgx,tgy,tgz); scene.add(tower);
+  // 螺旋階段（歩いて登れる・高さ関数と連動）
+  {
+    const steps=new THREE.InstancedMesh(new THREE.BoxGeometry(2.4,.5,1.4),twM,44);
+    const dd=new THREE.Object3D();
+    for(let i=0;i<44;i++){
+      const a=i/44*Math.PI*2;
+      dd.position.set(tgx+Math.sin(a)*5.5,tgy+(i+.5)/44*40,tgz+Math.cos(a)*5.5);
+      dd.rotation.set(0,a,0); dd.updateMatrix();
+      steps.setMatrixAt(i,dd.matrix);
+    }
+    steps.instanceMatrix.needsUpdate=true; scene.add(steps);
+  }
   const padM=new THREE.MeshBasicMaterial({color:0x7affd4,transparent:true,opacity:.7,side:THREE.DoubleSide});
   [[tgx,tgz+9],[5,8]].forEach(([x,z])=>{
     const pad=new THREE.Mesh(new THREE.CircleGeometry(2.2,24),padM.clone());
     pad.rotation.x=-Math.PI/2; pad.position.set(x,groundH(x,z)+.12,z);
     scene.add(pad); pads.push(pad);
   });
+}
+// 螺旋階段の高さ関数（塔中心-24,38）
+function spiralH(x,z){
+  const dx=x+24, dz=z-38, r=Math.hypot(dx,dz);
+  if(r<4.0||r>7.2) return 0;
+  const t=(((Math.atan2(dx,dz)/(Math.PI*2))%1)+1)%1;
+  return groundH(-24,38)+t*40;
 }
 // かがり火（道しるべ・8基）と手持ち松明の灯り
 const flames=[];
@@ -724,7 +743,7 @@ $('walkBtn').onclick=()=>{ autoWalk=!autoWalk; ensureAudio();
 // ジャンプ（地形の高さに着地・移動中も可）
 function tryJump(){
   ensureAudio();
-  if(!jumping){ jumping=true; vy=12; beep(); }
+  if(!jumping){ jumping=true; vy=12; }
 }
 $('jumpBtn').onclick=()=>tryJump();
 let mode='outside', gpsOn=false, watchId=null, origin=store.origin||null;
@@ -1139,7 +1158,7 @@ function tick(){
     }
   }
   {
-    const g=groundH(px,pz);
+    const g=Math.max(groundH(px,pz),spiralH(px,pz));
     if(jumping){
       vy-=22*dt; py+=vy*dt;
       if(py<=g){ py=g; vy=0; jumping=false; }
