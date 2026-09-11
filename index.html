@@ -74,7 +74,7 @@
 <script type="module">
 import * as THREE from 'three';
 const $=id=>document.getElementById(id);
-const APP_VERSION='P10.3';
+const APP_VERSION='P10.4';
 $('ver').textContent='ver '+APP_VERSION;
 const hud=$('hud'), logEl=$('log'), flash=$('flash');
 function log(m){ const t=new Date().toLocaleTimeString(); logEl.innerHTML+=`<br>[${t}] ${m}`; logEl.scrollTop=1e6; }
@@ -524,6 +524,30 @@ let nightDome=null, moonSpr=null, sunSpr=null, nightTex=null, dayTex=null; const
   const ruinLight=new THREE.PointLight(0xffb45e,1.3,75,1.6);
   ruinLight.position.set(0,7,55); scene.add(ruinLight);
 }
+// 展望塔（街見下ろしテスト用）とジャンプ台
+const pads=[];
+{
+  const tgx=-24, tgz=38, tgy=groundH(tgx,tgz);
+  const twM=new THREE.MeshStandardMaterial({roughness:.9});
+  twM.map=stoneTexture('#8a7a5c','#6a5c42','#b09a70'); twM.needsUpdate=true;
+  const tower=new THREE.Group();
+  const shaft=new THREE.Mesh(new THREE.CylinderGeometry(3.5,4.5,40,10),twM);
+  shaft.position.y=20; tower.add(shaft);
+  const deck=new THREE.Mesh(new THREE.CylinderGeometry(6,6,1.5,12),twM);
+  deck.position.y=40.5; tower.add(deck);
+  const rail=new THREE.Mesh(new THREE.TorusGeometry(5.8,.3,8,20),twM);
+  rail.position.y=42; rail.rotation.x=Math.PI/2; tower.add(rail);
+  const beacon=new THREE.Mesh(new THREE.SphereGeometry(1,12,10),
+    new THREE.MeshStandardMaterial({color:0x7affd4,emissive:0x2affd4,emissiveIntensity:2}));
+  beacon.position.y=44; tower.add(beacon);
+  tower.position.set(tgx,tgy,tgz); scene.add(tower);
+  const padM=new THREE.MeshBasicMaterial({color:0x7affd4,transparent:true,opacity:.7,side:THREE.DoubleSide});
+  [[tgx,tgz+9],[5,8]].forEach(([x,z])=>{
+    const pad=new THREE.Mesh(new THREE.CircleGeometry(2.2,24),padM.clone());
+    pad.rotation.x=-Math.PI/2; pad.position.set(x,groundH(x,z)+.12,z);
+    scene.add(pad); pads.push(pad);
+  });
+}
 // かがり火（道しるべ・8基）と手持ち松明の灯り
 const flames=[];
 {
@@ -572,7 +596,7 @@ const accCircle=new THREE.Mesh(new THREE.RingGeometry(1,1.3,40),
 accCircle.rotation.x=-Math.PI/2; accCircle.position.y=.07; accCircle.visible=false; scene.add(accCircle);
 let px=0,pz=0,heading=0;
 let py=0, vy=0, jumping=false, dashing=false, lastStickEnd=0;
-window.__dbg={pos:()=>({px,pz,py:player.position.y,jumping,vy,g:groundH(px,pz)}),set:(x,z)=>{px=x;pz=z},jump:()=>{if(!jumping){jumping=true;vy=10;}},gh:(x,z)=>groundH(x,z)};
+window.__dbg={pos:()=>({px,pz,py:player.position.y,jumping,vy,g:groundH(px,pz)}),set:(x,z)=>{px=x;pz=z},jump:()=>{if(!jumping){jumping=true;vy=12;}},gh:(x,z)=>groundH(x,z)};
 
 // モンスター（浮く体＋顔・こっちを見てぷかぷかする）
 const secrets=[];
@@ -700,7 +724,7 @@ $('walkBtn').onclick=()=>{ autoWalk=!autoWalk; ensureAudio();
 // ジャンプ（地形の高さに着地・移動中も可）
 function tryJump(){
   ensureAudio();
-  if(!jumping){ jumping=true; vy=10; beep(); }
+  if(!jumping){ jumping=true; vy=12; beep(); }
 }
 $('jumpBtn').onclick=()=>tryJump();
 let mode='outside', gpsOn=false, watchId=null, origin=store.origin||null;
@@ -1109,6 +1133,11 @@ function tick(){
   const v=Math.max(0,smoothSpeed);
   const vstate=v>8?'高速移動中（景観のみ）':stopped?'停止（細部くっきり）':v>.5?'歩行中':'減速中';
   // 高さ：接地物理（上りは即登坂・下りと空中は重力落下）
+  for(const pad of pads){
+    if(!jumping && Math.hypot(pad.position.x-px,pad.position.z-pz)<2.5 && py<=groundH(px,pz)+.15){
+      jumping=true; vy=30; beep(); log('展望ジャンプ!'); break;
+    }
+  }
   {
     const g=groundH(px,pz);
     if(jumping){
@@ -1135,6 +1164,7 @@ function tick(){
   torch.intensity=(dayMode?.2:1.05)+Math.sin(now*.013)*.18+Math.sin(now*.041)*.1;
   const fl=1+Math.sin(now*.02)*.15;
   for(const f of flames) f.scale.setScalar(fl);
+  for(const pad of pads) pad.material.opacity=.5+Math.sin(now*.005)*.25;
   for(const cl of clouds){ cl.position.x+=dt*cl.userData.sp; if(cl.position.x>330) cl.position.x=-330; }
 
   secrets.forEach(s=>{
