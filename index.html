@@ -74,7 +74,7 @@
 <script type="module">
 import * as THREE from 'three';
 const $=id=>document.getElementById(id);
-const APP_VERSION='P10.2';
+const APP_VERSION='P10.3';
 $('ver').textContent='ver '+APP_VERSION;
 const hud=$('hud'), logEl=$('log'), flash=$('flash');
 function log(m){ const t=new Date().toLocaleTimeString(); logEl.innerHTML+=`<br>[${t}] ${m}`; logEl.scrollTop=1e6; }
@@ -572,7 +572,7 @@ const accCircle=new THREE.Mesh(new THREE.RingGeometry(1,1.3,40),
 accCircle.rotation.x=-Math.PI/2; accCircle.position.y=.07; accCircle.visible=false; scene.add(accCircle);
 let px=0,pz=0,heading=0;
 let py=0, vy=0, jumping=false, dashing=false, lastStickEnd=0;
-window.__dbg={pos:()=>({px,pz,py:player.position.y,jumping,vy,g:groundH(px,pz)}),set:(x,z)=>{px=x;pz=z},jump:()=>{if(!jumping){jumping=true;vy=7;}},gh:(x,z)=>groundH(x,z)};
+window.__dbg={pos:()=>({px,pz,py:player.position.y,jumping,vy,g:groundH(px,pz)}),set:(x,z)=>{px=x;pz=z},jump:()=>{if(!jumping){jumping=true;vy=10;}},gh:(x,z)=>groundH(x,z)};
 
 // モンスター（浮く体＋顔・こっちを見てぷかぷかする）
 const secrets=[];
@@ -700,7 +700,7 @@ $('walkBtn').onclick=()=>{ autoWalk=!autoWalk; ensureAudio();
 // ジャンプ（地形の高さに着地・移動中も可）
 function tryJump(){
   ensureAudio();
-  if(!jumping){ jumping=true; vy=7; beep(); }
+  if(!jumping){ jumping=true; vy=10; beep(); }
 }
 $('jumpBtn').onclick=()=>tryJump();
 let mode='outside', gpsOn=false, watchId=null, origin=store.origin||null;
