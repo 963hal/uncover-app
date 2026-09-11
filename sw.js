@@ -1,5 +1,5 @@
 /* UNCOVER P2 試作SW: index.htmlは常に最新を確認、画像はキャッシュ優先 */
-const CACHE = 'uncover-p2-v2';
+const CACHE = 'uncover-p2-v3';
 const ASSETS = ['./index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));

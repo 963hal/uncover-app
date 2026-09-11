@@ -88,7 +88,7 @@
 <script type="module">
 import * as THREE from 'three';
 const $=id=>document.getElementById(id);
-const APP_VERSION='P11.1';
+const APP_VERSION='P11.2';
 $('ver').textContent='ver '+APP_VERSION;
 const hud=$('hud'), logEl=$('log'), flash=$('flash');
 function log(m){ const t=new Date().toLocaleTimeString(); logEl.innerHTML+=`<br>[${t}] ${m}`; logEl.scrollTop=1e6; }
@@ -925,20 +925,20 @@ $('osmBtn').onclick=async()=>{
 };
 try{const c=JSON.parse(localStorage.getItem(KEY+':osm')||'null'); if(c) drawOSMWays(c.el,{lat:c.lat,lon:c.lon});}catch{}
 $('resetBtn').onclick=()=>{localStorage.removeItem(KEY);location.reload();};
-// 更新確認（開発中の新版を取り込む・PWAキャッシュ対策）
+// 更新確認（開発中の新版を取り込む・PWAキャッシュ対策・SW登録解除つき）
 $('updateBtn').onclick=async()=>{
   log('更新確認中…終わったら自動で再読込します。');
   try{
     if('serviceWorker' in navigator){
       const regs=await navigator.serviceWorker.getRegistrations();
-      for(const r of regs){ try{ await r.update(); }catch{} }
+      for(const r of regs){ try{ await r.unregister(); }catch{} }
     }
     if('caches' in window){
       const ks=await caches.keys();
       for(const k of ks){ await caches.delete(k); }
     }
   }catch(e){ log('更新確認で問題: '+e.message); }
-  setTimeout(()=>location.reload(),600);
+  setTimeout(()=>location.replace(location.pathname+'?v='+APP_VERSION+'&t='+Date.now()),600);
 };
 // デバッグ：目の前24mに置く（種切れ時は開封済みをリサイクル=何度でも出る）
 $('debugBtn').onclick=()=>{
