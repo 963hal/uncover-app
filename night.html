@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
 <link rel="apple-touch-icon" href="icon-180.png" />
-<title>UNCOVER — 昼遺跡ワールド試作</title>
+<title>UNCOVER — 夜森退避版（P8.2検証用）</title>
 <style>
   html,body{margin:0;height:100%;overflow:hidden;background:#0b1020;color:#e8ecf8;font-family:system-ui,sans-serif;touch-action:none}
   #hud{position:fixed;left:calc(10px + env(safe-area-inset-left, 0px));top:calc(12px + env(safe-area-inset-top, 0px));background:rgba(10,15,35,.80);padding:10px 12px;border-radius:10px;font-size:13px;line-height:1.65;max-width:min(72vw,360px);white-space:pre-line}
@@ -71,7 +71,7 @@
 <script type="module">
 import * as THREE from 'three';
 const $=id=>document.getElementById(id);
-const APP_VERSION='P9.0';
+const APP_VERSION='P8.2';
 const hud=$('hud'), logEl=$('log'), flash=$('flash');
 function log(m){ const t=new Date().toLocaleTimeString(); logEl.innerHTML+=`<br>[${t}] ${m}`; logEl.scrollTop=1e6; }
 
@@ -173,7 +173,6 @@ gate.position.set(-60,7,-60); scene.add(gate);
 // 夜森の環境（星・地面の濃淡・木・岩・固定シードで毎回同じ森）
 function rng32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
 const RND=rng32(20260911);
-let starPts=null;
 // カメラとキャラの間に入った障害物（木・岩・柱・判定用）
 const occluders=[];
 // 丸い光粒テクスチャ（点描画の四角対策）
@@ -193,8 +192,7 @@ const DOT=dotTexture();
   for(let i=0;i<N;i++){ const a=RND()*Math.PI*2, e=RND()*Math.PI*.45+.08, r=450;
     pos[i*3]=Math.cos(a)*Math.cos(e)*r; pos[i*3+1]=Math.sin(e)*r; pos[i*3+2]=Math.sin(a)*Math.cos(e)*r; }
   const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3));
-  starPts=new THREE.Points(g,new THREE.PointsMaterial({color:0xcfe0ff,size:1.6,sizeAttenuation:false,fog:false,map:DOT,transparent:true,depthWrite:false}));
-  scene.add(starPts);
+  scene.add(new THREE.Points(g,new THREE.PointsMaterial({color:0xcfe0ff,size:1.6,sizeAttenuation:false,fog:false,map:DOT,transparent:true,depthWrite:false})));
 }
 {
   const m1=new THREE.MeshBasicMaterial({color:0x101a30,transparent:true,opacity:.5});
@@ -312,24 +310,19 @@ function stoneTexture(base,line,speck,n=8){
   const t=new THREE.CanvasTexture(c);
   t.wrapS=t.wrapT=THREE.RepeatWrapping; return t;
 }
-let grassNight=null, grassDay=null;
 {
-  grassNight=grassTexture('#1c3023',['#2e5a38','#3a7046','#274d2e','#4a8a52','#1e3a26']);
-  grassNight.repeat.set(22,22);
-  grassDay=grassTexture('#3f7a44',['#4a8f52','#57a05e','#35803c','#6ab872','#2e6b34']);
-  grassDay.repeat.set(22,22);
-  const maxA=renderer.capabilities.getMaxAnisotropy();
-  grassNight.anisotropy=maxA; grassDay.anisotropy=maxA;
-  ground.material.map=grassNight; ground.material.color.set(0xffffff); ground.material.needsUpdate=true;
+  const moss=grassTexture();
+  moss.repeat.set(22,22);
+  ground.material.map=moss; ground.material.color.set(0xffffff); ground.material.needsUpdate=true;
   const cob=stoneTexture('#5c5648','#3a352c','#7a7260',10);
-  cob.repeat.set(3,3); cob.anisotropy=maxA;
+  cob.repeat.set(3,3);
   osmRoadMat.map=cob; osmRoadMat.needsUpdate=true;
 }
 // 地面テクスチャ（草のうねり・葉・土の3層・タイル目立ち対策）
-function grassTexture(base,blades){
+function grassTexture(){
   const c=document.createElement('canvas'); c.width=c.height=512;
   const g=c.getContext('2d');
-  g.fillStyle=base; g.fillRect(0,0,512,512);
+  g.fillStyle='#1c3023'; g.fillRect(0,0,512,512);
   for(let i=0;i<44;i++){
     const x=RND()*512, y=RND()*512, r=40+RND()*95;
     const gr=g.createRadialGradient(x,y,0,x,y,r);
@@ -337,7 +330,7 @@ function grassTexture(base,blades){
     gr.addColorStop(1,'rgba(0,0,0,0)');
     g.fillStyle=gr; g.beginPath(); g.arc(x,y,r,0,7); g.fill();
   }
-  const greens=blades;
+  const greens=['#2e5a38','#3a7046','#274d2e','#4a8a52','#1e3a26'];
   for(let i=0;i<5200;i++){
     const x=RND()*512, y=RND()*512, l=2+RND()*4, a=RND()*Math.PI;
     g.strokeStyle=greens[(RND()*greens.length)|0]; g.lineWidth=1.4;
@@ -500,18 +493,18 @@ const body=new THREE.Mesh(new THREE.CapsuleGeometry(.7,1.1,6,14),
 body.position.y=1.2; player.add(body);
 const head=new THREE.Mesh(new THREE.SphereGeometry(.48,18,14),
   new THREE.MeshStandardMaterial({color:0xffe0b8,roughness:.7}));
-head.position.y=2.62; player.add(head);
+head.position.y=2.25; player.add(head);
 const hat=new THREE.Mesh(new THREE.ConeGeometry(.62,.75,14),
   new THREE.MeshStandardMaterial({color:0x3f7a4e,roughness:.8}));
-hat.position.y=3.32; player.add(hat);
+hat.position.y=2.8; player.add(hat);
 {
   const wM=new THREE.MeshStandardMaterial({color:0xffffff,roughness:.4});
   const bM=new THREE.MeshStandardMaterial({color:0x14141c,roughness:.4});
   [-.18,.18].forEach(x=>{
     const w=new THREE.Mesh(new THREE.SphereGeometry(.11,10,8),wM);
-    w.position.set(x,2.67,.42); player.add(w);
+    w.position.set(x,2.3,.4); player.add(w);
     const b=new THREE.Mesh(new THREE.SphereGeometry(.05,8,6),bM);
-    b.position.set(x,2.67,.52); player.add(b);
+    b.position.set(x,2.3,.5); player.add(b);
   });
 }
 scene.add(player);
@@ -834,23 +827,18 @@ function onOrient(e){
   else if(e.alpha!=null) deg=360-e.alpha;
   if(deg!=null) compassDeg=deg;
 }
-// 昼夜切替（昼が標準・夜は退避版night.html）
-let dayMode=true;
-try{ dayMode=localStorage.getItem('uncover-day')!=='0'; }catch{}
+// 昼夜切替（夜=初期の夜森・昼=見比べ用）
+let dayMode=false;
+try{ dayMode=localStorage.getItem('uncover-day')==='1'; }catch{}
 function applyDay(){
   if(dayMode){ scene.background.set(0x9fc7ee); scene.fog.color.set(0x9fc7ee);
-    hemi.intensity=1.35; moon.intensity=1.15; moon.color.set(0xfff2dd); moon.position.set(-60,120,40);
-    ground.material.map=grassDay;
+    hemi.intensity=1.25; moon.intensity=.25;
     if(nightDome){ nightDome.visible=true; nightDome.material.map=dayTex; nightDome.material.needsUpdate=true; } }
   else { scene.background.set(0x0b1020); scene.fog.color.set(0x0b1020);
-    hemi.intensity=.95; moon.intensity=.85; moon.color.set(0xbfd0ff); moon.position.set(30,50,20);
-    ground.material.map=grassNight;
+    hemi.intensity=.95; moon.intensity=.85;
     if(nightDome){ nightDome.visible=true; nightDome.material.map=nightTex; nightDome.material.needsUpdate=true; } }
-  ground.material.needsUpdate=true;
   if(moonSpr) moonSpr.visible=!dayMode;
   if(sunSpr) sunSpr.visible=dayMode;
-  if(starPts) starPts.visible=!dayMode;
-  fireflyA.visible=fireflyB.visible=!dayMode;
   for(const cl of clouds){ cl.visible=true;
     cl.material.opacity=dayMode?.85:.5;
     cl.material.color.set(dayMode?0xffffff:0x9fb4dd); }
@@ -859,7 +847,7 @@ function applyDay(){
 }
 $('dayBtn').onclick=()=>{ dayMode=!dayMode;
   try{localStorage.setItem('uncover-day',dayMode?'1':'0');}catch{}
-  applyDay(); log(dayMode?'昼遺跡モード。':'夜モード（退避版相当）。'); };
+  applyDay(); log(dayMode?'昼モード（見比べ用・夜が正式）。':'夜モードに戻した。'); };
 applyDay();
 
 // 視点：背後三人称ゼルダ式（低・引・煽り・キャラは画面下に小さく）
@@ -1056,7 +1044,7 @@ function tick(){
   scene.fog.far+=(fogFar-scene.fog.far)*Math.min(1,dt*2);
   tower.material.emissiveIntensity=v>4?2.2:1;
   fireflyA.rotation.y+=dt*.02; fireflyB.rotation.y-=dt*.015;
-  torch.intensity=(dayMode?.2:1.05)+Math.sin(now*.013)*.18+Math.sin(now*.041)*.1;
+  torch.intensity=1.05+Math.sin(now*.013)*.18+Math.sin(now*.041)*.1;
   const fl=1+Math.sin(now*.02)*.15;
   for(const f of flames) f.scale.setScalar(fl);
   for(const cl of clouds){ cl.position.x+=dt*cl.userData.sp; if(cl.position.x>330) cl.position.x=-330; }
