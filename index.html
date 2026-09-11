@@ -74,7 +74,7 @@
 <script type="module">
 import * as THREE from 'three';
 const $=id=>document.getElementById(id);
-const APP_VERSION='P10.1';
+const APP_VERSION='P10.2';
 $('ver').textContent='ver '+APP_VERSION;
 const hud=$('hud'), logEl=$('log'), flash=$('flash');
 function log(m){ const t=new Date().toLocaleTimeString(); logEl.innerHTML+=`<br>[${t}] ${m}`; logEl.scrollTop=1e6; }
@@ -572,7 +572,7 @@ const accCircle=new THREE.Mesh(new THREE.RingGeometry(1,1.3,40),
 accCircle.rotation.x=-Math.PI/2; accCircle.position.y=.07; accCircle.visible=false; scene.add(accCircle);
 let px=0,pz=0,heading=0;
 let py=0, vy=0, jumping=false, dashing=false, lastStickEnd=0;
-window.__dbg={pos:()=>({px,pz,py:player.position.y,jumping,vy,g:groundH(px,pz)}),set:(x,z)=>{px=x;pz=z},jump:()=>{if(!jumping){jumping=true;vy=5;}},gh:(x,z)=>groundH(x,z)};
+window.__dbg={pos:()=>({px,pz,py:player.position.y,jumping,vy,g:groundH(px,pz)}),set:(x,z)=>{px=x;pz=z},jump:()=>{if(!jumping){jumping=true;vy=7;}},gh:(x,z)=>groundH(x,z)};
 
 // モンスター（浮く体＋顔・こっちを見てぷかぷかする）
 const secrets=[];
@@ -697,11 +697,12 @@ $('walkBtn').onclick=()=>{ autoWalk=!autoWalk; ensureAudio();
   $('walkBtn').textContent='おまかせ歩行: '+(autoWalk?'ON':'OFF');
   $('walkBtn').classList.toggle('on',autoWalk);
   log(autoWalk?'おまかせ歩行ON（正面に自動で進む・カメラ操作と両立）。':'おまかせ歩行OFF。'); };
-// ジャンプ（地形の高さに着地）
-$('jumpBtn').onclick=()=>{
+// ジャンプ（地形の高さに着地・移動中も可）
+function tryJump(){
   ensureAudio();
-  if(!jumping){ jumping=true; vy=5; beep(); }
-};
+  if(!jumping){ jumping=true; vy=7; beep(); }
+}
+$('jumpBtn').onclick=()=>tryJump();
 let mode='outside', gpsOn=false, watchId=null, origin=store.origin||null;
 let lastMove=performance.now(), smoothSpeed=0, lastFix=null, gpsAcc=null, lastLatLon=null, compassDeg=null;
 const modeBtn=$('modeBtn'), gpsBtn=$('gpsBtn');
@@ -1063,7 +1064,7 @@ addEventListener('pointerup',e=>{
   const targets=[];
   secrets.forEach(s=>{ targets.push(s.userData.core); targets.push(s.userData.halo); });
   const hits=ray.intersectObjects(targets.filter(c=>c.material.opacity>.25));
-  if(!hits.length){ return; }
+  if(!hits.length){ tryJump(); return; }
   const hit=hits[0].object;
   const s=secrets.find(g=>g.userData.core===hit||g.userData.halo===hit);
   const d=Math.hypot(s.position.x-px,s.position.z-pz);
@@ -1111,12 +1112,12 @@ function tick(){
   {
     const g=groundH(px,pz);
     if(jumping){
-      vy-=14*dt; py+=vy*dt;
+      vy-=22*dt; py+=vy*dt;
       if(py<=g){ py=g; vy=0; jumping=false; }
     } else if(py<g-0.01){
       py=Math.min(g,py+12*dt); vy=0;
     } else if(py>g+0.02){
-      vy-=14*dt; py+=vy*dt;
+      vy-=22*dt; py+=vy*dt;
       if(py<=g){ py=g; vy=0; }
     } else { py=g; vy=0; }
   }
@@ -1173,7 +1174,7 @@ function tick(){
   camFocus.lerp(player.position,Math.min(1,dt*10));
   const eyeY=camFocus.y+1.6, lookBase=camFocus.y+3.8;
   occEye.set(camFocus.x,eyeY,camFocus.z);
-  camT.set(camFocus.x-Math.sin(camAng)*camDist,camH,camFocus.z-Math.cos(camAng)*camDist);
+  camT.set(camFocus.x-Math.sin(camAng)*camDist,camFocus.y+camH,camFocus.z-Math.cos(camAng)*camDist);
   occDir.copy(camT).sub(occEye);
   const fullLen=occDir.length()||1; occDir.normalize();
   if(++occFrame%3===0){
