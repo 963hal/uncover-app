@@ -24,6 +24,7 @@
   input{width:92px;background:#101838;color:#fff;border:1px solid #4a5f9e;border-radius:6px;padding:4px 6px;font-size:12px}
   #flash{position:fixed;inset:0;pointer-events:none;background:radial-gradient(circle,rgba(255,215,122,.55),transparent 60%);opacity:0;transition:opacity .5s}
   #uiBtn{position:fixed;right:calc(10px + env(safe-area-inset-right, 0px));top:calc(12px + env(safe-area-inset-top, 0px));z-index:50;background:#22315e;color:#fff;border:1px solid #4a5f9e;border-radius:10px;padding:9px 10px;font-size:13px;cursor:pointer}
+  #ver{position:fixed;left:50%;top:calc(6px + env(safe-area-inset-top, 0px));transform:translateX(-50%);font-size:11px;opacity:.75;background:rgba(10,15,35,.6);padding:2px 10px;border-radius:8px;z-index:60;pointer-events:none}
   #mmap{position:fixed;right:calc(10px + env(safe-area-inset-right, 0px));bottom:calc(10px + env(safe-area-inset-bottom, 0px));width:148px;height:148px;border-radius:50%;border:2px solid #4a5f9e;z-index:5;background:rgba(10,15,35,.85)}
   body.hide-ui #btns,body.hide-ui #hud,body.hide-ui #log,body.hide-ui #area,body.hide-ui #zukan,body.hide-ui #help{display:none !important}
   #joy{position:fixed;left:calc(14px + env(safe-area-inset-left, 0px));bottom:calc(14px + env(safe-area-inset-bottom, 0px));width:124px;height:124px;border-radius:50%;background:rgba(34,49,94,.45);border:1px solid #4a5f9e;z-index:20;touch-action:none}
@@ -40,6 +41,7 @@
 <body>
 <div id="flash"></div>
 <button id="uiBtn">UI非表示</button>
+<div id="ver"></div>
 <canvas id="mmap" width="148" height="148"></canvas>
 <div id="hud">読み込み中…</div>
 <div id="btns">
@@ -71,7 +73,8 @@
 <script type="module">
 import * as THREE from 'three';
 const $=id=>document.getElementById(id);
-const APP_VERSION='P9.0';
+const APP_VERSION='P9.1';
+$('ver').textContent='ver '+APP_VERSION;
 const hud=$('hud'), logEl=$('log'), flash=$('flash');
 function log(m){ const t=new Date().toLocaleTimeString(); logEl.innerHTML+=`<br>[${t}] ${m}`; logEl.scrollTop=1e6; }
 
