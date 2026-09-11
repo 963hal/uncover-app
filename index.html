@@ -56,6 +56,7 @@
   <button id="gridBtn" class="on">仮の道路: ON</button>
   <button id="camBtn">視点リセット</button>
   <button id="camLockBtn">カメラ:自由</button>
+  <button id="altBtn">高度俯瞰: ON</button>
   <button id="centerBtn">ここを中心にする</button>
   <button id="compassBtn">コンパス: OFF</button>
   <button id="dayBtn">昼夜: 夜</button>
@@ -78,7 +79,7 @@
 <script type="module">
 import * as THREE from 'three';
 const $=id=>document.getElementById(id);
-const APP_VERSION='P10.7';
+const APP_VERSION='P10.8';
 $('ver').textContent='ver '+APP_VERSION;
 const hud=$('hud'), logEl=$('log'), flash=$('flash');
 function log(m){ const t=new Date().toLocaleTimeString(); logEl.innerHTML+=`<br>[${t}] ${m}`; logEl.scrollTop=1e6; }
@@ -1011,6 +1012,14 @@ $('camLockBtn').onclick=()=>{ camLock=!camLock;
   $('camLockBtn').textContent='カメラ:'+(camLock?'背後固定':'自由');
   $('camLockBtn').classList.toggle('on',camLock);
   log(camLock?'背後固定（常に真後ろ）。':'自由視点に戻した。'); };
+let altTilt=true;
+try{ altTilt=localStorage.getItem('uncover-alt')!=='0'; }catch{}
+function applyAlt(){ $('altBtn').textContent='高度俯瞰: '+(altTilt?'ON':'OFF');
+  $('altBtn').classList.toggle('on',altTilt); }
+$('altBtn').onclick=()=>{ altTilt=!altTilt;
+  try{localStorage.setItem('uncover-alt',altTilt?'1':'0');}catch{}
+  applyAlt(); log(altTilt?'高度で俯瞰ON。':'高度俯瞰OFF（地上と同じ目線）。'); };
+applyAlt();
 {
   const el=renderer.domElement; let lastT=null, pinchD=0, lastMidY=null;
   el.addEventListener('touchstart',e=>{ if(e.touches.length===1) lastT={x:e.touches[0].clientX,y:e.touches[0].clientY};
@@ -1273,7 +1282,7 @@ function tick(){
   camFocus.lerp(player.position,Math.min(1,dt*10));
   const eyeY=camFocus.y+1.6, lookBase=camFocus.y+3.8;
   occEye.set(camFocus.x,eyeY,camFocus.z);
-  camT.set(camFocus.x-Math.sin(camAng)*camDist,camFocus.y+camH+camFocus.y*0.45,camFocus.z-Math.cos(camAng)*camDist);
+  camT.set(camFocus.x-Math.sin(camAng)*camDist,camFocus.y+camH+(altTilt?camFocus.y*0.45:0),camFocus.z-Math.cos(camAng)*camDist);
   occDir.copy(camT).sub(occEye);
   const fullLen=occDir.length()||1; occDir.normalize();
   if(++occFrame%3===0){
