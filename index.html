@@ -14,10 +14,10 @@
 <title>UNCOVER — 昼遺跡ワールド試作</title>
 <style>
   html,body{margin:0;height:100%;overflow:hidden;background:#141009;color:#f5e6c4;font-family:system-ui,sans-serif;touch-action:none}
-  #hud{position:fixed;left:calc(10px + env(safe-area-inset-left, 0px));top:calc(12px + env(safe-area-inset-top, 0px));background:rgba(30,22,14,.85);border:1px solid #c9a44a;padding:10px 12px;border-radius:10px;font-size:13px;line-height:1.65;max-width:min(72vw,360px);white-space:pre-line}
+  #hud{position:fixed;left:calc(10px + env(safe-area-inset-left, 0px));top:calc(58px + env(safe-area-inset-top, 0px));background:rgba(30,22,14,.85);border:1px solid #c9a44a;padding:10px 12px;border-radius:10px;font-size:13px;line-height:1.65;max-width:min(92vw,360px);white-space:pre-line}
   #hud b{color:#ffd77a}
   #topbtns{position:fixed;right:calc(10px + env(safe-area-inset-right, 0px));top:calc(12px + env(safe-area-inset-top, 0px));display:flex;gap:8px;z-index:50}
-  .panel{position:fixed;right:calc(10px + env(safe-area-inset-right, 0px));top:calc(64px + env(safe-area-inset-top, 0px));display:none;flex-direction:column;gap:8px;max-width:230px;max-height:62vh;overflow-y:auto;z-index:45;background:rgba(30,22,14,.92);border:1px solid #c9a44a;border-radius:12px;padding:10px}
+  .panel{position:fixed;right:calc(10px + env(safe-area-inset-right, 0px));top:calc(150px + env(safe-area-inset-top, 0px));display:none;flex-direction:column;gap:8px;max-width:230px;max-height:55vh;overflow-y:auto;z-index:45;background:rgba(30,22,14,.92);border:1px solid #c9a44a;border-radius:12px;padding:10px}
   button{background:linear-gradient(#5a4126,#3a2a16);color:#f5e6c4;border:1px solid #c9a44a;border-radius:10px;padding:9px 10px;font-size:13px;cursor:pointer;font-family:"Hiragino Mincho ProN","Yu Mincho",serif;letter-spacing:.05em}
   button.on{background:linear-gradient(#7a5a26,#4a3a16);border-color:#ffe27a}
   #log{position:fixed;left:calc(10px + env(safe-area-inset-left, 0px));bottom:calc(140px + env(safe-area-inset-bottom, 0px));font-size:12px;opacity:.93;background:rgba(20,14,8,.85);border:1px solid #c9a44a;padding:8px 10px;border-radius:8px;max-width:min(92vw,500px);max-height:24vh;overflow:auto;z-index:1;display:none}
@@ -27,7 +27,7 @@
   #title{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(10,8,4,.88);z-index:100;transition:opacity 1s;font-family:"Hiragino Mincho ProN","Yu Mincho",serif}
   #title div{font-size:52px;letter-spacing:.35em;color:#ffd77a;text-shadow:0 0 24px rgba(255,180,80,.6);margin-left:.35em}
   #title small{font-size:14px;letter-spacing:.3em;color:#c9a44a;margin-top:12px}
-  #ver{position:fixed;left:50%;top:calc(6px + env(safe-area-inset-top, 0px));transform:translateX(-50%);font-size:11px;opacity:.75;background:rgba(30,22,14,.6);border:1px solid #c9a44a;color:#ffd77a;padding:2px 10px;border-radius:8px;z-index:60;pointer-events:none;display:none}
+  #ver{position:fixed;left:50%;bottom:calc(8px + env(safe-area-inset-bottom, 0px));transform:translateX(-50%);font-size:11px;opacity:.75;background:rgba(30,22,14,.6);border:1px solid #c9a44a;color:#ffd77a;padding:2px 10px;border-radius:8px;z-index:60;pointer-events:none;display:none}
   #mmap{position:fixed;right:calc(10px + env(safe-area-inset-right, 0px));bottom:calc(10px + env(safe-area-inset-bottom, 0px));width:148px;height:148px;border-radius:50%;border:2px solid #c9a44a;z-index:5;background:rgba(20,14,8,.85)}
   body.hide-ui #menuPanel,body.hide-ui #testPanel,body.hide-ui #menuBtn,body.hide-ui #testBtn,body.hide-ui #hud,body.hide-ui #log,body.hide-ui #area,body.hide-ui #zukan,body.hide-ui #help{display:none !important}
   #joy{position:fixed;left:calc(14px + env(safe-area-inset-left, 0px));bottom:calc(14px + env(safe-area-inset-bottom, 0px));width:124px;height:124px;border-radius:50%;background:rgba(48,36,20,.45);border:1px solid #c9a44a;z-index:20;touch-action:none}
@@ -88,7 +88,7 @@
 <script type="module">
 import * as THREE from 'three';
 const $=id=>document.getElementById(id);
-const APP_VERSION='P11.3';
+const APP_VERSION='P11.4';
 $('ver').textContent='ver '+APP_VERSION;
 const hud=$('hud'), logEl=$('log'), flash=$('flash');
 function log(m){ const t=new Date().toLocaleTimeString(); logEl.innerHTML+=`<br>[${t}] ${m}`; logEl.scrollTop=1e6; }
