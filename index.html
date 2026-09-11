@@ -61,6 +61,7 @@
   <button id="snackBtn">おやつ（家専用）</button>
   <button id="zukanBtn">モンスターずかん</button>
   <button id="walkBtn">おまかせ歩行: OFF</button>
+  <button id="jumpBtn">ジャンプ</button>
   <button id="vibBtn">バイブ試験</button>
   <button id="updateBtn">更新確認</button>
   <button id="resetBtn">開拓リセット</button>
@@ -73,7 +74,7 @@
 <script type="module">
 import * as THREE from 'three';
 const $=id=>document.getElementById(id);
-const APP_VERSION='P9.2';
+const APP_VERSION='P10.0';
 $('ver').textContent='ver '+APP_VERSION;
 const hud=$('hud'), logEl=$('log'), flash=$('flash');
 function log(m){ const t=new Date().toLocaleTimeString(); logEl.innerHTML+=`<br>[${t}] ${m}`; logEl.scrollTop=1e6; }
@@ -103,9 +104,31 @@ const hemi=new THREE.HemisphereLight(0x8aa0ff,0x0a0f1e,.95); scene.add(hemi);
 const moon=new THREE.DirectionalLight(0xbfd0ff,.85); moon.position.set(30,50,20); scene.add(moon);
 
 const WORLD=400, CELL=10, AUTO_R=20, TAP_R=30;
-const ground=new THREE.Mesh(new THREE.PlaneGeometry(WORLD,WORLD),
+// 地形（種固定の丘陵・道路と拠点は平坦化）
+function vnoise(x,z){
+  return Math.sin(x*0.021+1.7)*Math.cos(z*0.023+0.6)*4.2
+       + Math.sin(x*0.052+0.3)*Math.sin(z*0.044+1.1)*2.1
+       + Math.sin((x+z)*0.013+2.2)*2.6;
+}
+function flatBlend(x,z){
+  let f=1;
+  const gx=Math.abs(((x%40)+40)%40), gz=Math.abs(((z%40)+40)%40);
+  f*=THREE.MathUtils.smoothstep(Math.min(Math.min(gx,40-gx),Math.min(gz,40-gz)),4,10);
+  const spots=[[0,0,14],[0,55,34],[-110,100,20],[-60,-60,14],[60,-90,18]];
+  for(const sq of spots){ const d=Math.hypot(x-sq[0],z-sq[1]); f*=THREE.MathUtils.smoothstep(d,sq[2]*.6,sq[2]); }
+  return f;
+}
+function groundH(x,z){ return vnoise(x,z)*flatBlend(x,z); }
+const groundGeo=new THREE.PlaneGeometry(WORLD,WORLD,100,100);
+groundGeo.rotateX(-Math.PI/2);
+{
+  const pa=groundGeo.attributes.position;
+  for(let i=0;i<pa.count;i++) pa.setY(i,groundH(pa.getX(i),pa.getZ(i)));
+  groundGeo.computeVertexNormals();
+}
+const ground=new THREE.Mesh(groundGeo,
   new THREE.MeshStandardMaterial({color:0x182238,roughness:1}));
-ground.rotation.x=-Math.PI/2; scene.add(ground);
+scene.add(ground);
 
 // ダミー格子（OSM成功で自動OFF・ボタンで戻せる）
 const roadGroup=new THREE.Group(); scene.add(roadGroup);
@@ -132,7 +155,7 @@ function ribbonMesh(pts,width,y){
     if(i>0) dist+=Math.hypot(p.x-pts[i-1].x,p.z-pts[i-1].z);
     let dx=q.x-o.x, dz=q.z-o.z; const l=Math.hypot(dx,dz)||1; dx/=l; dz/=l;
     const nx=-dz*width/2, nz=dx*width/2;
-    pos.push(p.x+nx,y,p.z+nz, p.x-nx,y,p.z-nz);
+    pos.push(p.x+nx,p.y,p.z+nz, p.x-nx,p.y,p.z-nz);
     uvs.push(dist/4,0, dist/4,1);
     if(i>0){ const a=(i-1)*2; idx.push(a,a+1,a+2, a+1,a+3,a+2); }
   }
@@ -153,7 +176,7 @@ function drawOSMWays(elements, origin){
       const dx=(p.lon-origin.lon)*Math.cos(origin.lat*Math.PI/180)*111320;
       const dz=-((p.lat-origin.lat)*110540);
       if(Math.abs(dx)>WORLD/2||Math.abs(dz)>WORLD/2) continue;
-      pts.push(new THREE.Vector3(dx,.15,dz));
+      pts.push(new THREE.Vector3(dx,groundH(dx,dz)+.09,dz));
     }
     if(pts.length<2) continue;
     if(n<250) osmGroup.add(ribbonMesh(pts,6,.09));
@@ -206,8 +229,9 @@ const DOT=dotTexture();
   const m1=new THREE.MeshBasicMaterial({color:0x101a30,transparent:true,opacity:.5});
   const m2=new THREE.MeshBasicMaterial({color:0x1e2c4a,transparent:true,opacity:.5});
   for(let i=0;i<36;i++){ const r=8+RND()*22;
+    const px2=(RND()-.5)*(WORLD-40), pz2=(RND()-.5)*(WORLD-40);
     const m=new THREE.Mesh(new THREE.CircleGeometry(r,20),RND()<.5?m1:m2);
-    m.rotation.x=-Math.PI/2; m.position.set((RND()-.5)*(WORLD-40),.012,(RND()-.5)*(WORLD-40)); scene.add(m); }
+    m.rotation.x=-Math.PI/2; m.position.set(px2,groundH(px2,pz2)+.012,pz2); scene.add(m); }
 }
 function nearGrid(x,z){ const gx=((x%40)+40)%40, gz=((z%40)+40)%40;
   return Math.min(gx,40-gx)<4.5||Math.min(gz,40-gz)<4.5; }
@@ -227,12 +251,12 @@ function nearGrid(x,z){ const gx=((x%40)+40)%40, gz=((z%40)+40)%40;
     if(Math.hypot(x,z)<8||nearGrid(x,z)) continue;
     const s=.7+RND()*.9;
     dummy.rotation.set(0,RND()*6.28,0);
-    dummy.position.set(x,1.1*s,z); dummy.scale.setScalar(s); dummy.updateMatrix();
+    dummy.position.set(x,groundH(x,z)+1.1*s,z); dummy.scale.setScalar(s); dummy.updateMatrix();
     trunks.setMatrixAt(ti,dummy.matrix);
-    dummy.position.set(x,3.6*s,z); dummy.updateMatrix();
+    dummy.position.set(x,groundH(x,z)+3.6*s,z); dummy.updateMatrix();
     leaves.setMatrixAt(ti,dummy.matrix);
     leaves.setColorAt(ti,leafCol.setHex(leafTones[(RND()*leafTones.length)|0]));
-    dummy.position.set(x,5.3*s,z); dummy.updateMatrix();
+    dummy.position.set(x,groundH(x,z)+5.3*s,z); dummy.updateMatrix();
     tops.setMatrixAt(ti,dummy.matrix);
     tops.setColorAt(ti,leafCol.setHex(leafTones[(RND()*leafTones.length)|0]));
     ti++;
@@ -250,7 +274,7 @@ function nearGrid(x,z){ const gx=((x%40)+40)%40, gz=((z%40)+40)%40;
     const x=(RND()-.5)*(WORLD-20), z=(RND()-.5)*(WORLD-20);
     if(Math.hypot(x,z)<6||nearGrid(x,z)) continue;
     dummy.rotation.set(RND()*3,RND()*3,RND()*3);
-    dummy.position.set(x,.3,z); dummy.scale.setScalar(.5+RND()); dummy.updateMatrix();
+    dummy.position.set(x,groundH(x,z)+.3,z); dummy.scale.setScalar(.5+RND()); dummy.updateMatrix();
     rocks.setMatrixAt(ri,dummy.matrix); ri++;
   }
   rocks.instanceMatrix.needsUpdate=true; scene.add(rocks);
@@ -268,7 +292,7 @@ function nearGrid(x,z){ const gx=((x%40)+40)%40, gz=((z%40)+40)%40;
     if(Math.abs(x)>WORLD/2-4||Math.abs(z)>WORLD/2-4||Math.hypot(x,z)<10) continue;
     const h=2+RND()*5;
     dummy.rotation.set(0,RND()*.6,0);
-    dummy.position.set(x,h/2,z); dummy.scale.set(1,h,1); dummy.updateMatrix();
+    dummy.position.set(x,groundH(x,z)+h/2,z); dummy.scale.set(1,h,1); dummy.updateMatrix();
     pillars.setMatrixAt(pi,dummy.matrix); pi++;
   }
   pillars.instanceMatrix.needsUpdate=true; scene.add(pillars);
@@ -284,7 +308,7 @@ function nearGrid(x,z){ const gx=((x%40)+40)%40, gz=((z%40)+40)%40;
     while(gi<NG&&guard++<9000){
       const x=(RND()-.5)*(WORLD-20), z=(RND()-.5)*(WORLD-20);
       if(Math.hypot(x,z)<5||nearGrid(x,z)) continue;
-      dd.position.set(x,.35,z);
+      dd.position.set(x,groundH(x,z)+.35,z);
       dd.scale.set(.7+RND()*.9,.6+RND()*.9,.7+RND()*.9);
       dd.rotation.set(0,RND()*6.28,0); dd.updateMatrix();
       tufts.setMatrixAt(gi,dd.matrix);
@@ -509,8 +533,9 @@ const flames=[];
   const fireM=new THREE.MeshStandardMaterial({color:0xffa63c,emissive:0xff7a1a,emissiveIntensity:2.2});
   const spots=[[14,6],[-12,10],[20,-14],[-20,-8],[8,26],[-6,-28],[30,16],[-32,20]];
   for(const [x,z] of spots){
-    const p=new THREE.Mesh(poleG,poleM); p.position.set(x,1.3,z); scene.add(p);
-    const f=new THREE.Mesh(fireG,fireM); f.position.set(x,2.9,z); scene.add(f); flames.push(f);
+    const gh=groundH(x,z);
+    const p=new THREE.Mesh(poleG,poleM); p.position.set(x,gh+1.3,z); scene.add(p);
+    const f=new THREE.Mesh(fireG,fireM); f.position.set(x,gh+2.9,z); scene.add(f); flames.push(f);
   }
 }
 const torch=new THREE.PointLight(0xffb45e,1.15,48,1.5);
@@ -546,6 +571,7 @@ const accCircle=new THREE.Mesh(new THREE.RingGeometry(1,1.3,40),
   new THREE.MeshBasicMaterial({color:0x88aaff,transparent:true,opacity:.5,side:THREE.DoubleSide}));
 accCircle.rotation.x=-Math.PI/2; accCircle.position.y=.07; accCircle.visible=false; scene.add(accCircle);
 let px=0,pz=0,heading=0;
+let pyJump=0, vy=0, jumping=false, dashing=false, lastStickEnd=0;
 
 // モンスター（浮く体＋顔・こっちを見てぷかぷかする）
 const secrets=[];
@@ -613,8 +639,9 @@ function isFound(s){ return found.has(s.userData.id)||found.has(keyOf(s.position
 secrets.forEach(s=>{ if(isFound(s)) s.userData.found=true; });
 const openedMat=new THREE.MeshStandardMaterial({color:0x3a4a5e,transparent:true,opacity:.14});
 function paintCell(cx,cz){
+  const wx=cx*CELL+CELL/2, wz=cz*CELL+CELL/2;
   const m=new THREE.Mesh(new THREE.PlaneGeometry(CELL,CELL),openedMat);
-  m.rotation.x=-Math.PI/2; m.position.set(cx*CELL+CELL/2,.03,cz*CELL+CELL/2); scene.add(m);
+  m.rotation.x=-Math.PI/2; m.position.set(wx,groundH(wx,wz)+.04,wz); scene.add(m);
 }
 cells.forEach(k=>{const[cx,cz]=k.split(',').map(Number); if(Number.isFinite(cx)) paintCell(cx,cz);});
 function markCell(){
@@ -642,9 +669,13 @@ const joy={x:0,y:0};
   const end=e=>{
     if(tid!==null && [...e.changedTouches].some(t=>t.identifier===tid)){
       tid=null; joy.x=0; joy.y=0; setKnob(0,0);
+      dashing=false; knob.style.borderColor='rgba(255,215,122,.8)';
+      lastStickEnd=performance.now();
     }
   };
   base.addEventListener('touchstart',e=>{ e.preventDefault(); ensureAudio();
+    const t=performance.now();
+    if(t-lastStickEnd<350){ dashing=true; knob.style.borderColor='#ffd77a'; beep(); } // ダブルタップ長押しでダッシュ
     tid=e.changedTouches[0].identifier; move(e); },{passive:false});
   base.addEventListener('touchmove',e=>{ e.preventDefault(); if(tid!==null) move(e); },{passive:false});
   base.addEventListener('touchend',end); base.addEventListener('touchcancel',end);
@@ -665,6 +696,11 @@ $('walkBtn').onclick=()=>{ autoWalk=!autoWalk; ensureAudio();
   $('walkBtn').textContent='おまかせ歩行: '+(autoWalk?'ON':'OFF');
   $('walkBtn').classList.toggle('on',autoWalk);
   log(autoWalk?'おまかせ歩行ON（正面に自動で進む・カメラ操作と両立）。':'おまかせ歩行OFF。'); };
+// ジャンプ（地形の高さに着地）
+$('jumpBtn').onclick=()=>{
+  ensureAudio();
+  if(!jumping){ jumping=true; vy=5; beep(); }
+};
 let mode='outside', gpsOn=false, watchId=null, origin=store.origin||null;
 let lastMove=performance.now(), smoothSpeed=0, lastFix=null, gpsAcc=null, lastLatLon=null, compassDeg=null;
 const modeBtn=$('modeBtn'), gpsBtn=$('gpsBtn');
@@ -1056,7 +1092,7 @@ function tick(){
     // 入力なまし＋旋回制限（スティック過敏の緩和）
     smx+=(vx-smx)*Math.min(1,dt*12); smz+=(vz-smz)*Math.min(1,dt*12);
     const ml=Math.hypot(smx,smz);
-    if(ml>.12){const cl=Math.min(ml,1), nx=smx/ml, nz=smz/ml, sp=7*cl;
+    if(ml>.12){const cl=Math.min(ml,1), nx=smx/ml, nz=smz/ml, sp=(dashing?11:7)*cl;
       px=Math.max(-WORLD/2+5,Math.min(WORLD/2-5,px+nx*sp*dt));
       pz=Math.max(-WORLD/2+5,Math.min(WORLD/2-5,pz+nz*sp*dt));
       let dh=Math.atan2(nx,nz)-heading;
@@ -1070,9 +1106,14 @@ function tick(){
   const stopped=(now-lastMove)>2000;
   const v=Math.max(0,smoothSpeed);
   const vstate=v>8?'高速移動中（景観のみ）':stopped?'停止（細部くっきり）':v>.5?'歩行中':'減速中';
-  player.position.set(px,0,pz); player.rotation.y=heading;
-  torch.position.set(px,3.2,pz);
+  // 高さ：地形＋ジャンプ
+  let py=groundH(px,pz);
+  if(jumping){ pyJump+=vy*dt; vy-=14*dt;
+    if(pyJump<=0){ pyJump=0; jumping=false; } else py+=pyJump; }
+  player.position.set(px,py,pz); player.rotation.y=heading;
+  torch.position.set(px,py+3.2,pz);
   autoRing.position.set(px,.06,pz);
+  if(accCircle.visible) accCircle.position.set(px,groundH(px,pz)+.07,pz);
   body.position.y=1.2+((!stopped)?Math.sin(now/130)*.07:Math.sin(now/650)*.035);
   markCell();
 
@@ -1105,7 +1146,7 @@ function tick(){
     for(const mt of mats) mt.opacity+=(t-mt.opacity)*k;
     halo.material.opacity+=(((ok&&d<32&&!s.userData.found)?.5:0)-halo.material.opacity)*k;
     s.userData.ph+=dt*(stopped?2.4:1.1); // ぷかぷか
-    s.position.y=Math.sin(s.userData.ph)*.22;
+    s.position.y=groundH(s.position.x,s.position.z)+Math.sin(s.userData.ph)*.22;
     if(d<60&&d>.5) s.lookAt(px,s.position.y+1.1,pz); // こっちを見る
     // 自動ゲット：20mに入ったら停止・タップ不要
     if(ok&&!s.userData.found&&d<AUTO_R&&v<=8) discover(s,`接近ゲット（${d.toFixed(0)}m）`);
@@ -1120,7 +1161,8 @@ function tick(){
   // カメラ：注視点をなめらかに追い、視線上で直接配置（角度一定・ズームなし）
   // 木陰対策：3フレーム毎に障害物判定し視線に沿って手前に寄せる
   camFocus.lerp(player.position,Math.min(1,dt*10));
-  occEye.set(camFocus.x,2.0,camFocus.z);
+  const eyeY=camFocus.y+1.6, lookBase=camFocus.y+3.8;
+  occEye.set(camFocus.x,eyeY,camFocus.z);
   camT.set(camFocus.x-Math.sin(camAng)*camDist,camH,camFocus.z-Math.cos(camAng)*camDist);
   occDir.copy(camT).sub(occEye);
   const fullLen=occDir.length()||1; occDir.normalize();
@@ -1131,8 +1173,10 @@ function tick(){
   }
   occCur+=(Math.min(occDist,fullLen)-occCur)*Math.min(1,dt*8);
   camT.copy(occEye).addScaledVector(occDir,occCur);
-  const lookEff=2.0+(lookY-2.0)*(occCur/fullLen); // 寄せても画角一定
+  const lookEff=eyeY+(lookBase-eyeY)*(occCur/fullLen); // 寄せても画角一定
   camera.position.copy(camT);camera.lookAt(camFocus.x,lookEff,camFocus.z);
+  const wantFov=dashing?70:60; // ダッシュで視野拡大
+  if(Math.abs(camera.fov-wantFov)>.2){ camera.fov+=(wantFov-camera.fov)*Math.min(1,dt*6); camera.updateProjectionMatrix(); }
   const dirTxt = compassDeg!=null?` コンパス${Math.round(compassDeg)}°`:'';
   const dr=dayRec();
   hud.textContent=`UNCOVER [${mode==='outside'?'外':'家'}|${gpsOn?'GPS':'模擬'}] ${vstate} ~${v.toFixed(1)}m/s${dirTxt}\n今日:${dr.caught}/${GOAL_CAUGHT}匹 ${dr.cells}/${GOAL_CELLS}マス｜連${streakN}日・計${found.size}匹\n◇モンスターに近づくと自動ゲット ${APP_VERSION}`;
