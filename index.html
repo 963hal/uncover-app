@@ -46,7 +46,6 @@
 <body>
 <div id="flash"></div>
 <div id="title"><div>UNCOVER</div><small>草原と遺跡のテスト冒険</small></div>
-<div id="title"><div>UNCOVER</div><small>草原と遺跡のテスト冒険</small></div>
 <div id="topbtns">
 <button id="uiBtn">UI非表示</button>
 <button id="menuBtn">メニュー</button>
@@ -89,7 +88,7 @@
 <script type="module">
 import * as THREE from 'three';
 const $=id=>document.getElementById(id);
-const APP_VERSION='P11.0';
+const APP_VERSION='P11.1';
 $('ver').textContent='ver '+APP_VERSION;
 const hud=$('hud'), logEl=$('log'), flash=$('flash');
 function log(m){ const t=new Date().toLocaleTimeString(); logEl.innerHTML+=`<br>[${t}] ${m}`; logEl.scrollTop=1e6; }
